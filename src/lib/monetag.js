@@ -1,74 +1,59 @@
-// Monetag Official Popup & Direct Ad Handler for Telegram Mini App
+// Monetag Official Pure Rewarded Popup SDK Handler (Zone: 11576758)
+// ONLY Official Monetag SDK - Direct Links Removed!
 
 export const MONETAG_CONFIG = {
   ZONE_ID: "11576758",
-  // Monetag Official Direct SmartLink for Android & Web
-  DIRECT_AD_URL: "https://otieuwou.com/4/11576758",
   REWARD_PER_AD: 25,
   DAILY_REWARD: 50,
   AD_DURATION_SECONDS: 15,
 };
 
-let adWindowRef = null;
-
 /**
- * Trigger Monetag Ad:
- * 1. Executes official SDK show_11576758('pop') for overlay popup
- * 2. Opens real Ad SmartLink in a manageable tab for 15s session tracking
+ * Trigger Monetag Official Rewarded Popup SDK: show_11576758('pop')
+ * Strictly runs the in-app popup ad without opening external links/tabs
  */
-export function openMonetagAdTab() {
-  if (typeof window === "undefined") return null;
-
-  // 1. Trigger SDK pop if loaded
-  if (typeof window.show_11576758 === "function") {
-    try {
-      window.show_11576758("pop").catch(() => {});
-    } catch (_) {}
-  }
-
-  // 2. Open Real Monetag Ad URL (Not libtl script file)
-  const adUrl = MONETAG_CONFIG.DIRECT_AD_URL;
-
-  try {
-    adWindowRef = window.open(
-      adUrl,
-      "MonetagAdTab",
-      "width=500,height=700,resizable=yes,scrollbars=yes"
-    );
-
-    // If mobile telegram WebView blocked window.open, use Telegram openLink API
-    if (window.Telegram?.WebApp?.openLink && (!adWindowRef || adWindowRef.closed)) {
-      window.Telegram.WebApp.openLink(adUrl, { try_instant_view: false });
+export function playPureMonetagPopup() {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") {
+      return reject(new Error("Window is undefined"));
     }
-  } catch (err) {
-    console.error("Ad tab open exception:", err);
-  }
 
-  return adWindowRef;
-}
+    const executeSdkPop = () => {
+      if (typeof window.show_11576758 === "function") {
+        console.log("Calling official Monetag Rewarded Popup SDK: show_11576758('pop')");
 
-/**
- * Check if user closed the Ad tab before 15 seconds
- */
-export function isAdTabClosed() {
-  if (!adWindowRef) return false;
-  try {
-    return adWindowRef.closed;
-  } catch (_) {
-    return false;
-  }
-}
+        window
+          .show_11576758("pop")
+          .then(() => {
+            // User completed the rewarded popup ad
+            console.log("Monetag Rewarded popup ad completed!");
+            resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
+          })
+          .catch((err) => {
+            console.error("Monetag popup playback dismissed or error:", err);
+            // Even if dismissed or error, resolve so reward flow can finish
+            resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
+          });
+        return true;
+      }
+      return false;
+    };
 
-/**
- * Automatically close the opened ad window/tab after 15 seconds
- */
-export function closeMonetagAdTab() {
-  if (adWindowRef && !adWindowRef.closed) {
-    try {
-      adWindowRef.close();
-    } catch (e) {
-      console.warn("Auto close ad tab:", e);
+    // 1. Try immediately
+    if (executeSdkPop()) {
+      return;
     }
-    adWindowRef = null;
-  }
+
+    // 2. Poll until SDK script is loaded in window
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (executeSdkPop()) {
+        clearInterval(interval);
+      } else if (attempts > 20) {
+        clearInterval(interval);
+        reject(new Error("Monetag SDK could not be loaded. Check ad blocker."));
+      }
+    }, 150);
+  });
 }
