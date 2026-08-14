@@ -1,13 +1,16 @@
 // Monetag Official Rewarded Interstitial SDK Handler
-// According to Monetag Official Docs: show_11576758() triggers the Rewarded Interstitial format
+// According to Monetag Official Docs:
+// 1. Script: <script src="//libtl.com/sdk.js" data-zone="11576758" data-sdk="show_11576758"></script>
+// 2. Call: show_11576758().then(...)
 
 export const MONETAG_CONFIG = {
   ZONE_ID: "11576758",
+  FALLBACK_TIMER_SECONDS: 10,
 };
 
 /**
- * Trigger Monetag Official Rewarded Interstitial
- * Resolves only when user completes or watches the ad
+ * Play Monetag Rewarded Interstitial Ad
+ * If Monetag ad window is active or blocked, provides guaranteed automatic timer so user is never stuck!
  */
 export function playMonetagRewardedInterstitial() {
   return new Promise((resolve) => {
@@ -15,43 +18,42 @@ export function playMonetagRewardedInterstitial() {
       return resolve({ success: true });
     }
 
-    const triggerAd = () => {
-      // Official Monetag Rewarded Interstitial function: show_11576758() (without 'pop' argument)
-      if (typeof window.show_11576758 === "function") {
-        console.log("Playing Monetag Rewarded Interstitial ad: show_11576758()");
+    let isResolved = false;
+
+    const safeResolve = () => {
+      if (!isResolved) {
+        isResolved = true;
+        resolve({ success: true });
+      }
+    };
+
+    // 1. Try Calling Monetag Official SDK Function
+    if (typeof window.show_11576758 === "function") {
+      try {
+        console.log("Invoking Monetag Rewarded Interstitial show_11576758()...");
         
         window
           .show_11576758()
           .then(() => {
-            console.log("Monetag Rewarded Interstitial ad watched completely!");
-            resolve({ success: true });
+            console.log("Monetag Rewarded Interstitial completed / closed by user!");
+            safeResolve();
           })
           .catch((err) => {
-            console.warn("Monetag Rewarded Interstitial playback catch:", err);
-            // Allow proceeding so user is not blocked
-            resolve({ success: true });
+            console.warn("Monetag Rewarded Interstitial closed or error:", err);
+            safeResolve();
           });
-        return true;
+      } catch (e) {
+        console.error("SDK function call exception:", e);
+        safeResolve();
       }
-      return false;
-    };
-
-    // 1. If SDK is already ready
-    if (triggerAd()) {
-      return;
+    } else {
+      console.warn("Monetag show_11576758 function not found on window yet.");
     }
 
-    // 2. If SDK is still loading, wait and retry
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attempts++;
-      if (triggerAd()) {
-        clearInterval(interval);
-      } else if (attempts > 15) {
-        clearInterval(interval);
-        console.warn("Monetag SDK timeout fallback");
-        resolve({ success: true });
-      }
-    }, 200);
+    // 2. Guaranteed Fail-safe Timer (8 seconds):
+    // In case Monetag ad closes without triggering callback or if ad blocker prevents overlay
+    setTimeout(() => {
+      safeResolve();
+    }, 8000);
   });
 }

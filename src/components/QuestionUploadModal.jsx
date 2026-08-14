@@ -4,12 +4,13 @@ import { useState } from "react";
 import { playMonetagRewardedInterstitial } from "@/lib/monetag";
 
 export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUploadSuccess }) {
-  const [step, setStep] = useState("ad"); // 'ad' | 'select_subject' | 'upload_image' | 'success'
+  const [step, setStep] = useState("ad"); // 'ad' | 'watching_ad' | 'select_subject' | 'upload_image' | 'success'
   const [loadingAd, setLoadingAd] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [adCountdown, setAdCountdown] = useState(8);
 
   // Demo Subject List with codes (simulating database query)
   const subjects = [
@@ -23,25 +24,29 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
 
   if (!isOpen) return null;
 
-  // Step 1: Trigger Monetag Rewarded Interstitial Ad
+  // Step 1: Trigger Monetag Rewarded Interstitial Ad with Live Visual Countdown
   const handleWatchAdAndProceed = async () => {
     setLoadingAd(true);
-    setStatusMessage("Opening Monetag Rewarded Interstitial Ad...");
+    setStep("watching_ad");
+    setAdCountdown(8);
 
-    try {
-      // Official Monetag Rewarded Interstitial trigger: show_11576758()
-      await playMonetagRewardedInterstitial();
+    let count = 8;
+    const interval = setInterval(() => {
+      count--;
+      setAdCountdown(count);
+      if (count <= 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
 
-      // Once ad finishes completely -> Move to subject selection list
-      setStep("select_subject");
-      setStatusMessage("");
-    } catch (err) {
-      console.error("Ad playback error:", err);
-      // Still allow proceeding to next step
-      setStep("select_subject");
-    }
+    // Call Monetag SDK function show_11576758()
+    await playMonetagRewardedInterstitial();
 
+    clearInterval(interval);
+    setStep("select_subject");
     setLoadingAd(false);
+    setStatusMessage("🎉 Ad verified! Please select your subject.");
+    setTimeout(() => setStatusMessage(""), 4000);
   };
 
   // Step 2: Handle Subject Selection
@@ -134,10 +139,10 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
             </div>
             <div className="space-y-1">
               <h4 className="text-base font-bold text-white">
-                Sponsored Ad Verification
+                Monetag Rewarded Interstitial
               </h4>
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Please watch a short Monetag Rewarded Interstitial ad to unlock the question upload portal.
+                Watch a short sponsored ad to unlock the question upload portal.
               </p>
             </div>
 
@@ -151,8 +156,30 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
               }`}
             >
               <span>⚡</span>
-              <span>{loadingAd ? "Loading Ad..." : "Watch Ad to Unlock Subjects"}</span>
+              <span>{loadingAd ? "Opening Ad..." : "Watch Ad & Unlock Subjects"}</span>
             </button>
+          </div>
+        )}
+
+        {/* STEP 1.5: Watching Ad Animation & Auto-Proceed Timer */}
+        {step === "watching_ad" && (
+          <div className="text-center py-8 space-y-4">
+            <div className="relative flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full border-4 border-slate-800 border-t-amber-400 animate-spin" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-3xl font-black text-amber-400 font-mono">
+                  {adCountdown}s
+                </span>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-base font-bold text-white">
+                Playing Sponsored Ad...
+              </h4>
+              <p className="text-xs text-slate-400">
+                Please wait. Subjects will unlock automatically!
+              </p>
+            </div>
           </div>
         )}
 
@@ -163,7 +190,7 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
               <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
                 Select a Subject to Upload:
               </h4>
-              <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                 Ad Verified ✓
               </span>
             </div>
