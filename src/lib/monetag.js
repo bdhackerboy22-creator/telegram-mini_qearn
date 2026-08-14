@@ -1,4 +1,4 @@
-// Monetag Zone Configuration & Invocation Handler
+// Monetag In-App Overlay/Interstitial Trigger Configuration
 
 export const MONETAG_CONFIG = {
   ZONE_ID: "11576758",
@@ -8,26 +8,18 @@ export const MONETAG_CONFIG = {
 };
 
 /**
- * Initializes the Monetag advertising format without altering ad iframe/content.
+ * Trigger Monetag Ad inside the app using official SDK show_11576758
  */
-export function initializeMonetagAdSession() {
+export function triggerMonetagAdInApp() {
   if (typeof window === "undefined") return;
 
-  // 1. If official SDK function is available, invoke it
   if (typeof window.show_11576758 === "function") {
     try {
-      window.show_11576758("pop").catch((err) => {
-        console.warn("Monetag SDK session event:", err);
+      window.show_11576758("pop").catch((e) => {
+        console.warn("Monetag playback notice:", e);
       });
-    } catch (err) {
-      console.warn("Monetag SDK exception:", err);
+    } catch (e) {
+      console.warn("Monetag invocation error:", e);
     }
-  } else if (window.Telegram?.WebApp?.openLink) {
-    // 2. Mobile Telegram safe open
-    try {
-      window.Telegram.WebApp.openLink(`https://libtl.com/sdk.js?zone=11576758`, {
-        try_instant_view: false,
-      });
-    } catch (_) {}
   }
 }
