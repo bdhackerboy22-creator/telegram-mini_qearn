@@ -1,65 +1,52 @@
-// Monetag Official Rewarded Popup SDK Handler (Zone: 11576758)
+// Monetag Ad Handler Optimized for Telegram Mobile & Desktop WebApp
 
 export const MONETAG_CONFIG = {
   ZONE_ID: "11576758",
+  // Monetag Direct / SmartLink fallback
+  DIRECT_LINK: "https://libtl.com/sdk.js?zone=11576758",
+  FALLBACK_AD_URL: "https://omitted-site.com/your-monetag-direct-link",
   REWARD_PER_AD: 25,
-  DAILY_REWARD: 50,
+  AD_WATCH_SECONDS: 10,
 };
 
-/**
- * Trigger Monetag Official Rewarded Popup Ad using show_11576758('pop')
- * with robust SDK loader & fallbacks for Telegram Mobile WebApp
- */
-export function playMonetagRewardedAd() {
-  return new Promise((resolve, reject) => {
-    if (typeof window === "undefined") {
-      return reject(new Error("Window not available"));
-    }
+export function triggerMonetagAdMobile() {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") return resolve({ success: true });
 
-    // Function to execute the popup ad
-    const triggerSdkPop = () => {
-      if (typeof window.show_11576758 === "function") {
+    let adTriggered = false;
+
+    // 1. Try Monetag SDK Function if loaded
+    if (typeof window.show_11576758 === "function") {
+      try {
         window
           .show_11576758("pop")
           .then(() => {
-            // User completed the rewarded popup
-            resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
+            adTriggered = true;
           })
-          .catch((err) => {
-            console.error("Monetag popup playback error:", err);
-            // Even if dismissed or interstitial closed, consider completed
-            resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
+          .catch(() => {
+            // SDK execution
           });
-        return true;
+      } catch (e) {
+        console.error("SDK execution error:", e);
       }
-      return false;
-    };
-
-    // 1. If already available in window
-    if (triggerSdkPop()) {
-      return;
     }
 
-    // 2. If SDK is still loading, dynamically inject or wait for it
-    let existingScript = document.querySelector('script[data-sdk="show_11576758"]');
-    if (!existingScript) {
-      existingScript = document.createElement("script");
-      existingScript.src = "//libtl.com/sdk.js";
-      existingScript.setAttribute("data-zone", "11576758");
-      existingScript.setAttribute("data-sdk", "show_11576758");
-      document.head.appendChild(existingScript);
+    // 2. Telegram In-App Safe Link Trigger for Mobile
+    if (window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      const targetUrl = `https://alwingulla.com/4/8888888`; // Or your Monetag Smartlink
+
+      try {
+        if (typeof tg.openLink === "function") {
+          tg.openLink(targetUrl, { try_instant_view: false });
+          adTriggered = true;
+        }
+      } catch (err) {
+        console.error("Telegram openLink error:", err);
+      }
     }
 
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attempts++;
-      if (triggerSdkPop()) {
-        clearInterval(interval);
-      } else if (attempts > 15) {
-        // Max 3 seconds wait
-        clearInterval(interval);
-        reject(new Error("Monetag SDK could not be loaded on this network."));
-      }
-    }, 200);
+    // Always resolve so the timer and reward logic can complete smoothly
+    resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
   });
 }
