@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { playMonetagRewardedPopup, MONETAG_CONFIG } from "@/lib/monetag";
+import { playMonetagRewardedAdSafely, MONETAG_CONFIG } from "@/lib/monetag";
 
 export default function TasksModal({
   isOpen,
@@ -27,21 +27,21 @@ export default function TasksModal({
     );
   };
 
-  const handleWatchRewardedPopupAd = async () => {
+  const handleWatchRewardedAd = async () => {
     if (loading) return;
 
     setIsError(false);
-    setStatusMessage("Opening Monetag Rewarded Popup Ad...");
+    setStatusMessage("Opening Monetag Rewarded Ad...");
     setLoading(true);
 
     try {
-      // 1. Strictly trigger Monetag Rewarded Popup (show_11576758('pop'))
-      const adResult = await playMonetagRewardedPopup();
+      // 1. Play Monetag Ad safely bypassing Telegram WebView popup blockers
+      const adResult = await playMonetagRewardedAdSafely();
 
       if (adResult.success) {
-        setStatusMessage("🎉 Popup Ad completed! Adding coins...");
+        setStatusMessage("Ad completed! Crediting coins to your account...");
 
-        // 2. Add Coins in Database
+        // 2. Add Coins to DB
         const response = await fetch("/api/tasks/reward", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -64,9 +64,9 @@ export default function TasksModal({
         }
       }
     } catch (err) {
-      console.error("Popup ad error:", err);
+      console.error("Ad error:", err);
       setIsError(true);
-      setStatusMessage("Monetag Popup Ad closed or blocked. Please try again.");
+      setStatusMessage("Could not load ad. Please try again.");
     }
 
     setLoading(false);
@@ -136,18 +136,18 @@ export default function TasksModal({
           </div>
         )}
 
-        {/* Task 1: Strict Monetag Rewarded Popup Ad */}
+        {/* Task 1: Monetag Rewarded Ad (Unblockable on Mobile) */}
         <div className="bg-slate-800/70 border border-sky-500/40 rounded-2xl p-4 space-y-3.5 shadow-lg">
           <div className="flex justify-between items-center">
             <div>
               <div className="flex items-center space-x-2">
-                <h4 className="font-bold text-white text-base">Rewarded Popup Ad</h4>
+                <h4 className="font-bold text-white text-base">Watch Rewarded Ad</h4>
                 <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold">
                   +{MONETAG_CONFIG.REWARD_PER_AD} Coins
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Watch Monetag Rewarded Popup Ad & earn coins
+                Watch Monetag Sponsored Ad & earn coins instantly
               </p>
             </div>
             <span className="text-xs font-mono bg-sky-500/10 text-sky-400 px-2.5 py-1 rounded-lg border border-sky-500/20">
@@ -156,7 +156,7 @@ export default function TasksModal({
           </div>
 
           <button
-            onClick={handleWatchRewardedPopupAd}
+            onClick={handleWatchRewardedAd}
             disabled={loading}
             className={`w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center space-x-2 transition-all ${
               loading
@@ -165,7 +165,7 @@ export default function TasksModal({
             }`}
           >
             <span className="text-lg">📺</span>
-            <span>{loading ? "Opening Popup Ad..." : "Watch Rewarded Popup Ad"}</span>
+            <span>{loading ? "Loading Ad..." : "Watch Rewarded Ad"}</span>
           </button>
         </div>
 
