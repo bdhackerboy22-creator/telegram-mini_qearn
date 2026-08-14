@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Telegram Mini App",
-  description: "Telegram Earning Mini App",
+  title: "Telegram Mini App - Question Upload",
+  description: "Telegram Earning Mini App with Question Upload Task",
 };
 
 export const viewport = {
@@ -32,6 +32,13 @@ export default function RootLayout({ children }) {
       <head>
         {/* Telegram WebApp official SDK */}
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+        {/* Monetag Official Rewarded Interstitial SDK (Zone: 11576758) */}
+        <script
+          src="//libtl.com/sdk.js"
+          data-zone="11576758"
+          data-sdk="show_11576758"
+        ></script>
       </head>
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white overflow-x-hidden antialiased">
         {children}
