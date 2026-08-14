@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { showMonetagAd, MONETAG_CONFIG } from "@/lib/monetag";
+import { useState } from "react";
+import { playMonetagRewardedAd, MONETAG_CONFIG } from "@/lib/monetag";
 
 export default function TasksModal({
   isOpen,
@@ -10,20 +10,9 @@ export default function TasksModal({
   onRewardClaimed,
   userStats,
 }) {
-  const [cooldown, setCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [isError, setIsError] = useState(false);
-
-  useEffect(() => {
-    let timer;
-    if (cooldown > 0) {
-      timer = setInterval(() => {
-        setCooldown((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [cooldown]);
 
   if (!isOpen) return null;
 
@@ -38,18 +27,21 @@ export default function TasksModal({
     );
   };
 
-  const handleWatchAd = async () => {
-    if (cooldown > 0 || loading) return;
+  const handleWatchRewardedAd = async () => {
+    if (loading) return;
 
     setIsError(false);
-    setStatusMessage("Opening Monetag Ad...");
+    setStatusMessage("Opening Monetag Rewarded Popup Ad...");
     setLoading(true);
 
-    const res = await showMonetagAd();
+    try {
+      // 1. Play Monetag Rewarded Popup Ad via show_11576758('pop')
+      const adResult = await playMonetagRewardedAd();
 
-    if (res.success) {
-      // Call Backend to verify & credit coins in DB
-      try {
+      if (adResult.success) {
+        setStatusMessage("Ad completed! Crediting coins...");
+
+        // 2. Call Backend API to securely add coins in MongoDB
         const response = await fetch("/api/tasks/reward", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -65,19 +57,16 @@ export default function TasksModal({
             adsWatchedCount: data.adsWatchedCount,
             totalEarned: data.totalEarned,
           });
-          setCooldown(MONETAG_CONFIG.AD_COOLDOWN_SECONDS);
-          setStatusMessage(`🎉 +${data.reward} Coins credited to your account!`);
+          setStatusMessage(`🎉 Reward Claimed! +${data.reward} Coins added to your balance.`);
         } else {
           setIsError(true);
-          setStatusMessage(data.error || "Failed to reward coins");
+          setStatusMessage(data.error || "Failed to add reward coins.");
         }
-      } catch (err) {
-        setIsError(true);
-        setStatusMessage("Network error while claiming reward");
       }
-    } else {
+    } catch (err) {
+      console.error("Ad playback error:", err);
       setIsError(true);
-      setStatusMessage("Failed to display Monetag ad");
+      setStatusMessage("Ad was closed or could not load. Please try again.");
     }
 
     setLoading(false);
@@ -137,27 +126,28 @@ export default function TasksModal({
 
         {statusMessage && (
           <div
-            className={`p-3 border text-xs font-semibold rounded-xl text-center animate-pulse ${
+            className={`p-3 border text-xs font-semibold rounded-xl text-center ${
               isError
                 ? "bg-rose-500/20 border-rose-500/40 text-rose-300"
-                : "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+                : "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 animate-pulse"
             }`}
           >
             {statusMessage}
           </div>
         )}
 
-        {/* Task 1: Monetag Rewarded Ads */}
-        <div className="bg-slate-800/70 border border-sky-500/30 rounded-2xl p-4 space-y-3">
+        {/* Task 1: Monetag Rewarded Popup Ad */}
+        <div className="bg-slate-800/70 border border-sky-500/40 rounded-2xl p-4 space-y-3.5 shadow-lg">
           <div className="flex justify-between items-center">
             <div>
-              <h4 className="font-bold text-white text-base">Watch Monetag Ad</h4>
-              <p className="text-xs text-slate-400">
-                Earn{" "}
-                <span className="text-amber-400 font-bold">
+              <div className="flex items-center space-x-2">
+                <h4 className="font-bold text-white text-base">Watch Rewarded Ad</h4>
+                <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold">
                   +{MONETAG_CONFIG.REWARD_PER_AD} Coins
-                </span>{" "}
-                per ad
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Watch Monetag Popup Ad & get instant coins
               </p>
             </div>
             <span className="text-xs font-mono bg-sky-500/10 text-sky-400 px-2.5 py-1 rounded-lg border border-sky-500/20">
@@ -166,22 +156,16 @@ export default function TasksModal({
           </div>
 
           <button
-            onClick={handleWatchAd}
-            disabled={cooldown > 0 || loading}
-            className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center space-x-2 transition-all ${
-              cooldown > 0 || loading
+            onClick={handleWatchRewardedAd}
+            disabled={loading}
+            className={`w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center space-x-2 transition-all ${
+              loading
                 ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-                : "bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-lg shadow-sky-500/25 active:scale-95"
+                : "bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 hover:from-sky-400 hover:to-purple-500 text-white shadow-xl shadow-sky-500/20 active:scale-95"
             }`}
           >
-            <span>📺</span>
-            <span>
-              {loading
-                ? "Processing..."
-                : cooldown > 0
-                ? `Wait ${cooldown}s for next ad`
-                : "Watch Ad & Earn Coins"}
-            </span>
+            <span className="text-lg">📺</span>
+            <span>{loading ? "Loading Ad..." : "Watch Rewarded Ad (Popup)"}</span>
           </button>
         </div>
 
@@ -199,7 +183,7 @@ export default function TasksModal({
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               isDailyAlreadyClaimed()
                 ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-                : "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20"
+                : "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-95"
             }`}
           >
             {isDailyAlreadyClaimed() ? "Claimed Today ✓" : "Claim Reward"}
@@ -216,7 +200,7 @@ export default function TasksModal({
             href="https://t.me/"
             target="_blank"
             rel="noreferrer"
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white"
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white active:scale-95"
           >
             Join
           </a>

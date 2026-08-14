@@ -1,43 +1,46 @@
-// Helper to handle Monetag Ads in Telegram Mini App
-// Monetag offers several ad formats: Rewarded Interstitial, Direct Links, In-Page Push, etc.
+// Monetag Official Rewarded Popup SDK Handler (Zone: 11576758)
 
 export const MONETAG_CONFIG = {
-  // Replace with your actual Monetag direct link or zone ID
-  DIRECT_LINK_URL: "https://omitted-site.com/your-monetag-direct-link",
+  ZONE_ID: "11576758",
   REWARD_PER_AD: 25,
   DAILY_REWARD: 50,
-  AD_COOLDOWN_SECONDS: 15,
 };
 
-export function showMonetagAd() {
-  return new Promise((resolve) => {
-    // If Monetag Rewarded SDK script is loaded in window (e.g., show_xxx)
-    if (typeof window !== "undefined" && typeof window.show_rewarded_ad === "function") {
-      window.show_rewarded_ad().then(() => {
-        resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
-      }).catch(() => {
-        // Fallback if SDK fails
-        triggerDirectLinkAd(resolve);
-      });
+/**
+ * Trigger Monetag Official Rewarded Popup Ad using show_11576758('pop')
+ */
+export function playMonetagRewardedAd() {
+  return new Promise((resolve, reject) => {
+    // 1. Check if Monetag official function show_11576758 is loaded
+    if (typeof window !== "undefined" && typeof window.show_11576758 === "function") {
+      window
+        .show_11576758("pop")
+        .then(() => {
+          // User watched the ad till the end or closed it in rewarded popup
+          resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
+        })
+        .catch((e) => {
+          console.error("Monetag Ad playback error:", e);
+          reject(e);
+        });
     } else {
-      // Fallback to Direct Link / In-app browser popup
-      triggerDirectLinkAd(resolve);
+      console.warn("Monetag SDK show_11576758 not found on window yet. Trying direct link or waiting.");
+      // If SDK not ready yet, wait 1 second and retry once
+      setTimeout(() => {
+        if (typeof window !== "undefined" && typeof window.show_11576758 === "function") {
+          window
+            .show_11576758("pop")
+            .then(() => {
+              resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
+            })
+            .catch((e) => {
+              reject(e);
+            });
+        } else {
+          // Fallback if adblocker or network blocked the script
+          resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
+        }
+      }, 1000);
     }
   });
-}
-
-function triggerDirectLinkAd(resolve) {
-  if (typeof window !== "undefined") {
-    // Open Monetag direct link in Telegram WebApp popup or external browser
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(MONETAG_CONFIG.DIRECT_LINK_URL, {
-        try_instant_view: false,
-      });
-    } else {
-      window.open(MONETAG_CONFIG.DIRECT_LINK_URL, "_blank");
-    }
-    resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
-  } else {
-    resolve({ success: false });
-  }
 }

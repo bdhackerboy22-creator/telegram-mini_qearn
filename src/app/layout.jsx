@@ -24,9 +24,18 @@ export default function RootLayout({ children }) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
+        {/* Telegram WebApp SDK */}
         <Script
           src="https://telegram.org/js/telegram-web-app.js"
           strategy="beforeInteractive"
+        />
+
+        {/* Monetag Rewarded Popup SDK */}
+        <Script
+          src="https://libtl.com/sdk.js"
+          data-zone="11576758"
+          data-sdk="show_11576758"
+          strategy="afterInteractive"
         />
       </head>
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white">
