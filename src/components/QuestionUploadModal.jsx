@@ -10,7 +10,6 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
-  const [adCountdown, setAdCountdown] = useState(8);
 
   // Demo Subject List with codes (simulating database query)
   const subjects = [
@@ -24,29 +23,26 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
 
   if (!isOpen) return null;
 
-  // Step 1: Trigger Monetag Rewarded Interstitial Ad with Live Visual Countdown
+  // Step 1: Trigger Monetag Rewarded Interstitial Ad - Wait until ad COMPLETELY finishes!
   const handleWatchAdAndProceed = async () => {
     setLoadingAd(true);
     setStep("watching_ad");
-    setAdCountdown(8);
+    setStatusMessage("");
 
-    let count = 8;
-    const interval = setInterval(() => {
-      count--;
-      setAdCountdown(count);
-      if (count <= 0) {
-        clearInterval(interval);
-      }
-    }, 1000);
+    try {
+      // 1. Call Monetag SDK and await its real completion
+      await playMonetagRewardedInterstitial();
 
-    // Call Monetag SDK function show_11576758()
-    await playMonetagRewardedInterstitial();
+      // 2. Only AFTER ad is completely finished -> Go to subject selection
+      setStep("select_subject");
+      setStatusMessage("🎉 Ad completed successfully! Please select your subject.");
+      setTimeout(() => setStatusMessage(""), 4000);
+    } catch (err) {
+      console.error("Ad playback error:", err);
+      setStep("select_subject");
+    }
 
-    clearInterval(interval);
-    setStep("select_subject");
     setLoadingAd(false);
-    setStatusMessage("🎉 Ad verified! Please select your subject.");
-    setTimeout(() => setStatusMessage(""), 4000);
   };
 
   // Step 2: Handle Subject Selection
@@ -139,10 +135,10 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
             </div>
             <div className="space-y-1">
               <h4 className="text-base font-bold text-white">
-                Monetag Rewarded Interstitial
+                Monetag Rewarded Ad
               </h4>
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Watch a short sponsored ad to unlock the question upload portal.
+                Watch the sponsored ad till the end to unlock the subject list.
               </p>
             </div>
 
@@ -156,28 +152,23 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
               }`}
             >
               <span>⚡</span>
-              <span>{loadingAd ? "Opening Ad..." : "Watch Ad & Unlock Subjects"}</span>
+              <span>{loadingAd ? "Playing Ad..." : "Watch Ad & Unlock Subjects"}</span>
             </button>
           </div>
         )}
 
-        {/* STEP 1.5: Watching Ad Animation & Auto-Proceed Timer */}
+        {/* STEP 1.5: Waiting while Ad Plays on screen */}
         {step === "watching_ad" && (
           <div className="text-center py-8 space-y-4">
-            <div className="relative flex items-center justify-center">
-              <div className="w-24 h-24 rounded-full border-4 border-slate-800 border-t-amber-400 animate-spin" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-black text-amber-400 font-mono">
-                  {adCountdown}s
-                </span>
-              </div>
+            <div className="w-20 h-20 mx-auto rounded-full border-4 border-slate-800 border-t-amber-400 animate-spin flex items-center justify-center">
+              <span className="text-xl">🎬</span>
             </div>
             <div className="space-y-1">
               <h4 className="text-base font-bold text-white">
-                Playing Sponsored Ad...
+                Ad is Currently Playing
               </h4>
-              <p className="text-xs text-slate-400">
-                Please wait. Subjects will unlock automatically!
+              <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                Please finish watching the ad. Subjects will unlock immediately after you complete or close the ad!
               </p>
             </div>
           </div>
