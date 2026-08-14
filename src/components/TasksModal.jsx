@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { triggerMonetagAdInApp, MONETAG_CONFIG } from "@/lib/monetag";
+import { triggerMonetagAdPlayback, MONETAG_CONFIG } from "@/lib/monetag";
 
 export default function TasksModal({
   isOpen,
@@ -10,43 +10,48 @@ export default function TasksModal({
   onRewardClaimed,
   userStats,
 }) {
-  // Session states: 'idle' | 'active' | 'incomplete' | 'completed'
-  const [sessionState, setSessionState] = useState("idle");
-  const [remainingSeconds, setRemainingSeconds] = useState(MONETAG_CONFIG.SESSION_DURATION_SECONDS);
+  const [isWatchingAd, setIsWatchingAd] = useState(false);
+  const [secondsRemaining, setSecondsRemaining] = useState(MONETAG_CONFIG.AD_DURATION_SECONDS);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
-  const sessionStartTimeRef = useRef(null);
-  const isClaimingRef = useRef(false);
+  const timerRef = useRef(null);
+  const secondsRef = useRef(MONETAG_CONFIG.AD_DURATION_SECONDS);
 
-  // 15-second active timer
+  // Sync ref with state
   useEffect(() => {
-    let timerId = null;
+    secondsRef.current = secondsRemaining;
+  }, [secondsRemaining]);
 
-    if (sessionState === "active") {
-      timerId = setInterval(() => {
-        if (!sessionStartTimeRef.current) return;
+  // Countdown timer logic
+  useEffect(() => {
+    if (isWatchingAd) {
+      setSecondsRemaining(MONETAG_CONFIG.AD_DURATION_SECONDS);
+      secondsRef.current = MONETAG_CONFIG.AD_DURATION_SECONDS;
 
-        const elapsedMs = Date.now() - sessionStartTimeRef.current;
-        const totalDurationMs = MONETAG_CONFIG.SESSION_DURATION_SECONDS * 1000;
-        const remainingMs = Math.max(0, totalDurationMs - elapsedMs);
-        const nextSeconds = Math.ceil(remainingMs / 1000);
-
-        setRemainingSeconds(nextSeconds);
-
-        // 15 seconds completed!
-        if (elapsedMs >= totalDurationMs) {
-          clearInterval(timerId);
-          handleAdFinished(elapsedMs);
-        }
-      }, 250);
+      timerRef.current = setInterval(() => {
+        setSecondsRemaining((prev) => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current);
+            handleAdFullyCompleted();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
     }
 
     return () => {
-      if (timerId) clearInterval(timerId);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
     };
-  }, [sessionState]);
+  }, [isWatchingAd]);
 
   if (!isOpen) return null;
 
@@ -61,49 +66,41 @@ export default function TasksModal({
     );
   };
 
-  // Start 15s Ad Session
-  const handleStart15sAd = () => {
-    if (sessionState === "active" || loading) return;
+  const handleStartAd = () => {
+    if (isWatchingAd || loading) return;
 
     setIsError(false);
     setStatusMessage("");
-    isClaimingRef.current = false;
-    sessionStartTimeRef.current = Date.now();
-    setRemainingSeconds(MONETAG_CONFIG.SESSION_DURATION_SECONDS);
-    setSessionState("active");
+    setIsWatchingAd(true);
 
-    // Trigger Monetag Ad popup
-    triggerMonetagAdInApp();
+    // Trigger Monetag Ad popup / view
+    triggerMonetagAdPlayback();
   };
 
-  // If user cancels / closes before 15 seconds
-  const handleCancelEarly = () => {
-    if (sessionState === "active") {
-      setSessionState("incomplete");
-      setIsError(true);
-      setStatusMessage("❌ Ad closed before 15 seconds. Task incomplete, no coins added.");
-      setTimeout(() => setStatusMessage(""), 5000);
+  // Called if user tries to close / cancel before 15 seconds
+  const handleCancelAdEarly = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
     }
+    setIsWatchingAd(false);
+    setIsError(true);
+    setStatusMessage("❌ Task Incomplete! You must watch the ad for full 15 seconds to receive coins.");
+    setTimeout(() => setStatusMessage(""), 5000);
   };
 
-  // 15s Completed -> auto close ad overlay & add coins
-  const handleAdFinished = async (elapsedMs) => {
-    if (isClaimingRef.current) return;
-    isClaimingRef.current = true;
-
-    // 1. Auto-close ad overlay
-    setSessionState("completed");
+  // Called automatically when full 15 seconds are completed
+  const handleAdFullyCompleted = async () => {
+    setIsWatchingAd(false);
     setLoading(true);
+    setStatusMessage("15 seconds completed! Crediting coins...");
 
     try {
-      // 2. Add Coins via MongoDB API
       const response = await fetch("/api/tasks/reward", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           telegramId: telegramId || "demo_user",
           taskType: "monetag_ad",
-          elapsedMs: elapsedMs || 15000,
         }),
       });
 
@@ -113,19 +110,18 @@ export default function TasksModal({
           adsWatchedCount: data.adsWatchedCount,
           totalEarned: data.totalEarned,
         });
-        setStatusMessage(`🎉 15s Ad Complete! +${data.reward} Coins added to your balance.`);
         setIsError(false);
+        setStatusMessage(`🎉 Task Completed! +${data.reward} Coins credited to your account.`);
       } else {
         setIsError(true);
         setStatusMessage(data.error || "Failed to reward coins");
       }
     } catch (err) {
       setIsError(true);
-      setStatusMessage("Network error while recording coins");
+      setStatusMessage("Network error while claiming reward");
     }
 
     setLoading(false);
-    setSessionState("idle");
     setTimeout(() => setStatusMessage(""), 5000);
   };
 
@@ -141,7 +137,6 @@ export default function TasksModal({
         body: JSON.stringify({
           telegramId: telegramId || "demo_user",
           taskType: "daily_checkin",
-          elapsedMs: 15000,
         }),
       });
 
@@ -167,53 +162,65 @@ export default function TasksModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto relative">
-        {/* 15-Second Ad Active Overlay */}
-        {sessionState === "active" && (
-          <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md z-50 rounded-3xl flex flex-col items-center justify-center p-6 text-center space-y-6 animate-fadeIn">
-            <div className="relative">
-              <div className="w-28 h-28 rounded-full border-4 border-slate-800 border-t-amber-400 animate-spin flex items-center justify-center shadow-xl" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-black text-amber-400 font-mono">
-                  {remainingSeconds}s
-                </span>
-                <span className="text-[10px] text-slate-400 uppercase font-semibold">
-                  Please wait
-                </span>
+        {/* Full Active 15s Ad Session Overlay */}
+        {isWatchingAd && (
+          <div className="absolute inset-0 bg-slate-950/98 backdrop-blur-xl z-50 rounded-3xl flex flex-col items-center justify-between p-6 text-center space-y-4 animate-fadeIn">
+            {/* Top Bar with Early Close Button */}
+            <div className="w-full flex justify-between items-center">
+              <span className="text-[11px] font-mono text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                Mandatory Session: 15s
+              </span>
+              <button
+                onClick={handleCancelAdEarly}
+                className="px-2.5 py-1 text-xs font-semibold bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-lg flex items-center space-x-1"
+              >
+                <span>Leave</span>
+                <span>✕</span>
+              </button>
+            </div>
+
+            {/* Circular Countdown Display */}
+            <div className="my-auto flex flex-col items-center space-y-4">
+              <div className="relative flex items-center justify-center">
+                <div className="w-28 h-28 rounded-full border-4 border-slate-800 border-t-amber-400 animate-spin" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-4xl font-black text-amber-400 font-mono">
+                    {secondsRemaining}s
+                  </span>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                    Remaining
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 max-w-xs">
+                <h3 className="text-base font-bold text-white">
+                  Watching Monetag Sponsored Ad
+                </h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Do not leave or close this screen before 15 seconds. If you exit early, the task will be marked as <span className="text-rose-400 font-semibold">Incomplete</span>.
+                </p>
+              </div>
+
+              <div className="px-4 py-1.5 bg-sky-500/10 border border-sky-500/30 rounded-full text-xs text-sky-300 font-mono">
+                Reward: +{MONETAG_CONFIG.REWARD_PER_AD} Coins 🪙
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <h3 className="text-lg font-bold text-white tracking-wide">
-                Watching Sponsored Ad...
-              </h3>
-              <p className="text-xs text-amber-300 font-mono">
-                Please wait: {remainingSeconds}s
-              </p>
-              <p className="text-[11px] text-slate-400 max-w-xs">
-                Do not close or cancel before 15 seconds. Coins will be credited automatically!
-              </p>
-            </div>
-
-            <button
-              onClick={handleCancelEarly}
-              className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-xl text-xs font-semibold transition-colors"
-            >
-              Cancel Early (No Coins)
-            </button>
+            <p className="text-[10px] text-slate-500">
+              Auto-closes & credits coins at 0s
+            </p>
           </div>
         )}
 
-        {/* Header */}
+        {/* Modal Header */}
         <div className="flex justify-between items-center pb-2 border-b border-slate-800">
           <div className="flex items-center space-x-2">
             <span className="text-2xl">🎯</span>
             <h3 className="text-xl font-bold text-white">Earning Tasks</h3>
           </div>
           <button
-            onClick={() => {
-              if (sessionState === "active") handleCancelEarly();
-              onClose();
-            }}
+            onClick={onClose}
             className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm"
           >
             ✕
@@ -232,7 +239,7 @@ export default function TasksModal({
           </div>
         )}
 
-        {/* Task 1: 15-Second Ad Task */}
+        {/* Task 1: 15s Monetag Rewarded Task */}
         <div className="bg-slate-800/70 border border-sky-500/40 rounded-2xl p-4 space-y-3.5 shadow-lg">
           <div className="flex justify-between items-center">
             <div>
@@ -243,7 +250,7 @@ export default function TasksModal({
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Watch full 15s ad & get coins automatically
+                Watch full 15 seconds to receive reward coins
               </p>
             </div>
             <span className="text-xs font-mono bg-sky-500/10 text-sky-400 px-2.5 py-1 rounded-lg border border-sky-500/20">
@@ -252,18 +259,16 @@ export default function TasksModal({
           </div>
 
           <button
-            onClick={handleStart15sAd}
-            disabled={sessionState === "active" || loading}
+            onClick={handleStartAd}
+            disabled={isWatchingAd || loading}
             className={`w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center space-x-2 transition-all ${
-              loading || sessionState === "active"
+              loading
                 ? "bg-slate-700 text-slate-400 cursor-not-allowed"
                 : "bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 hover:from-sky-400 hover:to-purple-500 text-white shadow-xl shadow-sky-500/20 active:scale-95"
             }`}
           >
             <span className="text-lg">📺</span>
-            <span>
-              {loading ? "Crediting Coins..." : "Watch 15s Ad & Earn Coins"}
-            </span>
+            <span>{loading ? "Processing..." : "Watch 15s Ad & Earn Coins"}</span>
           </button>
         </div>
 

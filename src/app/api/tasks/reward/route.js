@@ -6,7 +6,7 @@ import { MONETAG_CONFIG } from "@/lib/monetag";
 
 export async function POST(request) {
   try {
-    const { telegramId, taskType, elapsedMs } = await request.json();
+    const { telegramId, taskType } = await request.json();
 
     if (!telegramId || !taskType) {
       return NextResponse.json(
@@ -29,21 +29,27 @@ export async function POST(request) {
     let taskTitle = "";
 
     if (taskType === "monetag_ad") {
-      // Validate minimum elapsed time of 15 seconds (15,000 ms with small 500ms jitter margin)
-      if (typeof elapsedMs === "number" && elapsedMs < (MONETAG_CONFIG.SESSION_DURATION_SECONDS * 1000 - 500)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Ad session was incomplete. You must view for at least 15 seconds.",
-          },
-          { status: 400 }
-        );
+      // Cooldown validation on server side
+      const now = new Date();
+      if (user.lastAdWatchedTime) {
+        const diffSeconds = (now - new Date(user.lastAdWatchedTime)) / 1000;
+        if (diffSeconds < MONETAG_CONFIG.AD_COOLDOWN_SECONDS - 2) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Please wait ${Math.ceil(
+                MONETAG_CONFIG.AD_COOLDOWN_SECONDS - diffSeconds
+              )} seconds before watching another ad.`,
+            },
+            { status: 429 }
+          );
+        }
       }
 
       rewardAmount = MONETAG_CONFIG.REWARD_PER_AD;
       taskTitle = "Monetag Rewarded Ad";
       user.adsWatchedCount += 1;
-      user.lastAdWatchedTime = new Date();
+      user.lastAdWatchedTime = now;
     } else if (taskType === "daily_checkin") {
       const now = new Date();
       if (user.lastDailyRewardDate) {
