@@ -1,33 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Profile from "@/components/Profile";
-import ActionCards from "@/components/ActionCards";
-import TasksModal from "@/components/TasksModal";
-import WithdrawModal from "@/components/WithdrawModal";
-import BalanceModal from "@/components/BalanceModal";
-import SupportModal from "@/components/SupportModal";
 
 export default function Home() {
   const [user, setUser] = useState(null);
   const [balance, setBalance] = useState(0);
-  const [userStats, setUserStats] = useState({
-    totalEarned: 0,
-    totalWithdrawn: 0,
-    adsWatchedCount: 0,
-    lastDailyRewardDate: null,
-  });
-  const [transactions, setTransactions] = useState([]);
-  const [activeModal, setActiveModal] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let initData = "";
     let localUser = {
-      id: "demo_101",
-      first_name: "Demo",
+      id: "demo_user",
+      first_name: "Telegram",
       last_name: "User",
-      username: "demo_earner",
+      username: "tele_user",
     };
 
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -54,97 +40,90 @@ export default function Home() {
         if (data.success && data.user) {
           setUser(data.user);
           setBalance(data.user.balance);
-          setUserStats({
-            totalEarned: data.user.totalEarned,
-            totalWithdrawn: data.user.totalWithdrawn,
-            adsWatchedCount: data.user.adsWatchedCount,
-            lastDailyRewardDate: data.user.lastDailyRewardDate,
-          });
-          setTransactions(data.transactions || []);
         } else {
           setUser(localUser);
+          setBalance(100);
         }
       })
-      .catch((err) => {
-        console.error("Auth sync error:", err);
+      .catch(() => {
         setUser(localUser);
+        setBalance(100);
       })
       .finally(() => setLoading(false));
   }, []);
 
-  const handleRewardClaimed = (newBalance, newTx, updatedStats = {}) => {
-    setBalance(newBalance);
-    setUserStats((prev) => ({ ...prev, ...updatedStats }));
-    if (newTx) {
-      setTransactions((prev) => [newTx, ...prev]);
-    }
-  };
-
-  const handleWithdrawSuccess = (newBalance, newTx, updatedStats = {}) => {
-    setBalance(newBalance);
-    setUserStats((prev) => ({ ...prev, ...updatedStats }));
-    if (newTx) {
-      setTransactions((prev) => [newTx, ...prev]);
-    }
-  };
+  const firstName = user?.first_name || "User";
+  const lastName = user?.last_name || "";
+  const username = user?.username ? `@${user.username}` : `ID: ${user?.id || ""}`;
+  const avatarLetter = firstName ? firstName[0].toUpperCase() : "U";
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-4 max-w-md mx-auto relative overflow-x-hidden selection:bg-sky-500 selection:text-white">
-      <div className="space-y-5">
-        {/* Top Profile Card */}
-        <Profile user={user} balance={balance} />
-
-        {/* Live Notification Bar */}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl px-4 py-2.5 flex items-center space-x-2.5 text-xs text-slate-300">
-          <span className="animate-pulse text-emerald-400">●</span>
-          <span className="font-medium truncate">
-            🔥 Monetag high-paying ads are now active! Watch & Earn coins.
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-4 max-w-md mx-auto w-full select-none">
+      {/* Top Header / Status */}
+      <div className="w-full flex items-center justify-between py-2">
+        <div className="flex items-center space-x-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs font-semibold tracking-wider uppercase text-emerald-400">
+            Online
           </span>
         </div>
+        <span className="text-[11px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full">
+          v1.0
+        </span>
+      </div>
 
-        {/* 4 Full-Width Big Action Buttons */}
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
-            Main Menu
-          </h3>
-          <ActionCards onOpenModal={(modalId) => setActiveModal(modalId)} />
+      {/* Main Center Content: Profile & Balance Only */}
+      <div className="my-auto space-y-6 w-full py-6">
+        {/* Profile Card */}
+        <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950 border border-slate-800/80 rounded-3xl p-6 shadow-2xl backdrop-blur-md">
+          {/* Subtle Ambient Light */}
+          <div className="absolute -top-16 -right-16 w-36 h-36 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col items-center text-center space-y-3">
+            {/* Avatar */}
+            <div className="relative">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center font-black text-3xl text-white shadow-lg border-2 border-sky-400/40">
+                {loading ? "..." : avatarLetter}
+              </div>
+              <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-900 rounded-full" />
+            </div>
+
+            {/* Name & Username */}
+            <div className="space-y-0.5">
+              <h2 className="text-xl font-bold text-white tracking-wide">
+                {loading ? "Loading..." : `${firstName} ${lastName}`}
+              </h2>
+              <p className="text-xs text-sky-400 font-mono">
+                {username}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Balance Card */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900/80 to-slate-950 border border-slate-800 rounded-3xl p-6 shadow-xl text-center space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+            Total Balance
+          </span>
+          <div className="flex items-center justify-center space-x-2">
+            <span className="text-3xl">🪙</span>
+            <span className="text-4xl font-extrabold text-amber-400 font-mono tracking-tight">
+              {loading ? "..." : balance.toLocaleString()}
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-500 font-medium">
+            Telegram Verified Account
+          </p>
         </div>
       </div>
 
-      {/* Footer Info */}
-      <footer className="mt-8 text-center text-[11px] text-slate-500 pb-2">
-        Telegram Monetag Earning App • Dynamic Cloud DB
+      {/* Footer */}
+      <footer className="w-full text-center py-4">
+        <p className="text-[11px] text-slate-600 font-medium">
+          Telegram Mini App • Clean Mode
+        </p>
       </footer>
-
-      {/* Dynamic Modals */}
-      <TasksModal
-        isOpen={activeModal === "tasks"}
-        onClose={() => setActiveModal(null)}
-        telegramId={user?.id}
-        userStats={userStats}
-        onRewardClaimed={handleRewardClaimed}
-      />
-
-      <WithdrawModal
-        isOpen={activeModal === "withdraw"}
-        onClose={() => setActiveModal(null)}
-        balance={balance}
-        telegramId={user?.id}
-        onWithdrawSuccess={handleWithdrawSuccess}
-      />
-
-      <BalanceModal
-        isOpen={activeModal === "balance"}
-        onClose={() => setActiveModal(null)}
-        balance={balance}
-        userStats={userStats}
-        transactions={transactions}
-      />
-
-      <SupportModal
-        isOpen={activeModal === "support"}
-        onClose={() => setActiveModal(null)}
-      />
     </main>
   );
 }

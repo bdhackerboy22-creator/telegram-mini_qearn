@@ -12,8 +12,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Telegram Earning Bot",
-  description: "Telegram Mini App Earning Bot",
+  title: "Telegram Mini App",
+  description: "Telegram Earning Mini App",
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({ children }) {
@@ -25,15 +32,8 @@ export default function RootLayout({ children }) {
       <head>
         {/* Telegram WebApp official SDK */}
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-        {/* Monetag Official Rewarded Popup SDK (Direct synchronous injection) */}
-        <script
-          src="//libtl.com/sdk.js"
-          data-zone="11576758"
-          data-sdk="show_11576758"
-        ></script>
       </head>
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white">
+      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white overflow-x-hidden antialiased">
         {children}
       </body>
     </html>
