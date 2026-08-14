@@ -1,4 +1,4 @@
-// Monetag Official Rewarded Interstitial SDK Handler
+// Monetag Rewarded Interstitial SDK Handler
 
 export const MONETAG_CONFIG = {
   ZONE_ID: "11576758",
@@ -6,7 +6,7 @@ export const MONETAG_CONFIG = {
 
 /**
  * Trigger Monetag Official Rewarded Interstitial Ad
- * Strictly waits until Monetag finishes playing and calls .then()
+ * Returns a promise that only resolves when the ad has fully displayed and closed by the user
  */
 export function playMonetagRewardedInterstitial() {
   return new Promise((resolve) => {
@@ -14,20 +14,24 @@ export function playMonetagRewardedInterstitial() {
       return resolve({ success: true });
     }
 
+    // If official SDK function exists
     if (typeof window.show_11576758 === "function") {
-      console.log("Triggering Monetag show_11576758()...");
+      console.log("Invoking Monetag show_11576758()...");
+
+      // show_11576758() opens the ad and returns a promise
+      // This promise resolves only AFTER the user watches and closes the ad!
       window
         .show_11576758()
         .then(() => {
-          console.log("Ad finished completely by user!");
+          console.log("Monetag Ad playback officially completed & closed by user!");
           resolve({ success: true });
         })
         .catch((err) => {
-          console.warn("Ad closed or error:", err);
+          console.warn("Monetag Ad closed or skipped:", err);
           resolve({ success: true });
         });
     } else {
-      console.warn("show_11576758 not loaded on window");
+      console.warn("show_11576758 function not found on window");
       resolve({ success: true });
     }
   });

@@ -30,10 +30,10 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
     setStatusMessage("");
 
     try {
-      // 1. Call Monetag SDK and await its real completion
+      // Strictly wait for Monetag SDK to play and close
       await playMonetagRewardedInterstitial();
 
-      // 2. Only AFTER ad is completely finished -> Go to subject selection
+      // Only AFTER Monetag ad closes -> unlock the subject selection!
       setStep("select_subject");
       setStatusMessage("🎉 Ad completed successfully! Please select your subject.");
       setTimeout(() => setStatusMessage(""), 4000);
@@ -68,7 +68,7 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
     if (!imagePreview || !selectedSubject) return;
 
     setIsSubmitting(true);
-    setStatusMessage("Uploading question image...");
+    setStatusMessage("Uploading question image to Cloudinary...");
 
     try {
       const response = await fetch("/api/questions/submit", {
@@ -135,10 +135,10 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
             </div>
             <div className="space-y-1">
               <h4 className="text-base font-bold text-white">
-                Monetag Rewarded Ad
+                Monetag Sponsored Ad
               </h4>
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Watch the sponsored ad till the end to unlock the subject list.
+                Please click the button below to watch the sponsored ad and unlock the question upload portal.
               </p>
             </div>
 
@@ -152,23 +152,23 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
               }`}
             >
               <span>⚡</span>
-              <span>{loadingAd ? "Playing Ad..." : "Watch Ad & Unlock Subjects"}</span>
+              <span>{loadingAd ? "Opening Ad..." : "Watch Ad & Unlock Subjects"}</span>
             </button>
           </div>
         )}
 
-        {/* STEP 1.5: Waiting while Ad Plays on screen */}
+        {/* STEP 1.5: Waiting while Ad is Displayed on Screen */}
         {step === "watching_ad" && (
           <div className="text-center py-8 space-y-4">
             <div className="w-20 h-20 mx-auto rounded-full border-4 border-slate-800 border-t-amber-400 animate-spin flex items-center justify-center">
-              <span className="text-xl">🎬</span>
+              <span className="text-2xl">🎬</span>
             </div>
             <div className="space-y-1">
               <h4 className="text-base font-bold text-white">
-                Ad is Currently Playing
+                Ad is Currently Loading / Playing
               </h4>
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Please finish watching the ad. Subjects will unlock immediately after you complete or close the ad!
+                Please finish watching the sponsored ad. Once you complete or close the ad, subjects will unlock!
               </p>
             </div>
           </div>
