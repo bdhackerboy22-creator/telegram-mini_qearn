@@ -8,39 +8,58 @@ export const MONETAG_CONFIG = {
 
 /**
  * Trigger Monetag Official Rewarded Popup Ad using show_11576758('pop')
+ * with robust SDK loader & fallbacks for Telegram Mobile WebApp
  */
 export function playMonetagRewardedAd() {
   return new Promise((resolve, reject) => {
-    // 1. Check if Monetag official function show_11576758 is loaded
-    if (typeof window !== "undefined" && typeof window.show_11576758 === "function") {
-      window
-        .show_11576758("pop")
-        .then(() => {
-          // User watched the ad till the end or closed it in rewarded popup
-          resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
-        })
-        .catch((e) => {
-          console.error("Monetag Ad playback error:", e);
-          reject(e);
-        });
-    } else {
-      console.warn("Monetag SDK show_11576758 not found on window yet. Trying direct link or waiting.");
-      // If SDK not ready yet, wait 1 second and retry once
-      setTimeout(() => {
-        if (typeof window !== "undefined" && typeof window.show_11576758 === "function") {
-          window
-            .show_11576758("pop")
-            .then(() => {
-              resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
-            })
-            .catch((e) => {
-              reject(e);
-            });
-        } else {
-          // Fallback if adblocker or network blocked the script
-          resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
-        }
-      }, 1000);
+    if (typeof window === "undefined") {
+      return reject(new Error("Window not available"));
     }
+
+    // Function to execute the popup ad
+    const triggerSdkPop = () => {
+      if (typeof window.show_11576758 === "function") {
+        window
+          .show_11576758("pop")
+          .then(() => {
+            // User completed the rewarded popup
+            resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
+          })
+          .catch((err) => {
+            console.error("Monetag popup playback error:", err);
+            // Even if dismissed or interstitial closed, consider completed
+            resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
+          });
+        return true;
+      }
+      return false;
+    };
+
+    // 1. If already available in window
+    if (triggerSdkPop()) {
+      return;
+    }
+
+    // 2. If SDK is still loading, dynamically inject or wait for it
+    let existingScript = document.querySelector('script[data-sdk="show_11576758"]');
+    if (!existingScript) {
+      existingScript = document.createElement("script");
+      existingScript.src = "//libtl.com/sdk.js";
+      existingScript.setAttribute("data-zone", "11576758");
+      existingScript.setAttribute("data-sdk", "show_11576758");
+      document.head.appendChild(existingScript);
+    }
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (triggerSdkPop()) {
+        clearInterval(interval);
+      } else if (attempts > 15) {
+        // Max 3 seconds wait
+        clearInterval(interval);
+        reject(new Error("Monetag SDK could not be loaded on this network."));
+      }
+    }, 200);
   });
 }

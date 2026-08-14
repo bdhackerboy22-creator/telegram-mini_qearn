@@ -1,4 +1,3 @@
-import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -24,19 +23,15 @@ export default function RootLayout({ children }) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        {/* Telegram WebApp SDK */}
-        <Script
-          src="https://telegram.org/js/telegram-web-app.js"
-          strategy="beforeInteractive"
-        />
+        {/* Telegram WebApp official SDK */}
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-        {/* Monetag Rewarded Popup SDK */}
-        <Script
-          src="https://libtl.com/sdk.js"
+        {/* Monetag Official Rewarded Popup SDK (Direct synchronous injection) */}
+        <script
+          src="//libtl.com/sdk.js"
           data-zone="11576758"
           data-sdk="show_11576758"
-          strategy="afterInteractive"
-        />
+        ></script>
       </head>
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white">
         {children}
