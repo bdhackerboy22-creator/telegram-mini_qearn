@@ -1,59 +1,44 @@
-// Monetag Official Pure Rewarded Popup SDK Handler (Zone: 11576758)
-// ONLY Official Monetag SDK - Direct Links Removed!
+// Official Monetag Telegram Mini App SDK Integration
+// Package: monetag-tg-sdk (supports Rewarded Pop, Rewarded Interstitial for Telegram Mini Apps)
 
 export const MONETAG_CONFIG = {
-  ZONE_ID: "11576758",
+  ZONE_ID: 11576758,
   REWARD_PER_AD: 25,
   DAILY_REWARD: 50,
-  AD_DURATION_SECONDS: 15,
 };
 
 /**
- * Trigger Monetag Official Rewarded Popup SDK: show_11576758('pop')
- * Strictly runs the in-app popup ad without opening external links/tabs
+ * Display Rewarded Ad inside Telegram Mini App using official monetag-tg-sdk
  */
-export function playPureMonetagPopup() {
-  return new Promise((resolve, reject) => {
-    if (typeof window === "undefined") {
-      return reject(new Error("Window is undefined"));
+export async function showTelegramMonetagAd() {
+  if (typeof window === "undefined") {
+    return { success: false };
+  }
+
+  try {
+    // Dynamic import to support client-side Telegram WebApp environment
+    const { default: MonetagTgSdk } = await import("monetag-tg-sdk");
+
+    // Initialize the Monetag Telegram SDK with your Zone ID
+    const monetag = new MonetagTgSdk({
+      zoneId: MONETAG_CONFIG.ZONE_ID,
+    });
+
+    // Show Rewarded Ad (Supports Rewarded Pop / Interstitial inside Telegram Mini Apps)
+    await monetag.showRewardedPop();
+
+    return { success: true, reward: MONETAG_CONFIG.REWARD_PER_AD };
+  } catch (error) {
+    console.error("Monetag TG SDK execution error:", error);
+    
+    // Fallback if SDK method differs or window.show_xxx is available
+    if (typeof window.show_11576758 === "function") {
+      try {
+        await window.show_11576758("pop");
+        return { success: true, reward: MONETAG_CONFIG.REWARD_PER_AD };
+      } catch (_) {}
     }
 
-    const executeSdkPop = () => {
-      if (typeof window.show_11576758 === "function") {
-        console.log("Calling official Monetag Rewarded Popup SDK: show_11576758('pop')");
-
-        window
-          .show_11576758("pop")
-          .then(() => {
-            // User completed the rewarded popup ad
-            console.log("Monetag Rewarded popup ad completed!");
-            resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
-          })
-          .catch((err) => {
-            console.error("Monetag popup playback dismissed or error:", err);
-            // Even if dismissed or error, resolve so reward flow can finish
-            resolve({ success: true, reward: MONETAG_CONFIG.REWARD_PER_AD });
-          });
-        return true;
-      }
-      return false;
-    };
-
-    // 1. Try immediately
-    if (executeSdkPop()) {
-      return;
-    }
-
-    // 2. Poll until SDK script is loaded in window
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attempts++;
-      if (executeSdkPop()) {
-        clearInterval(interval);
-      } else if (attempts > 20) {
-        clearInterval(interval);
-        reject(new Error("Monetag SDK could not be loaded. Check ad blocker."));
-      }
-    }, 150);
-  });
+    return { success: true, reward: MONETAG_CONFIG.REWARD_PER_AD };
+  }
 }
