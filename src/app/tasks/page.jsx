@@ -1,62 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useUser } from "@/context/UserContext";
 import Navbar from "@/components/Navbar";
 import QuestionUploadModal from "@/components/QuestionUploadModal";
 
 export default function TasksPage() {
-  const [user, setUser] = useState(null);
-  const [balance, setBalance] = useState(0);
+  const { user } = useUser();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-
-  useEffect(() => {
-    let initData = "";
-    let localUser = {
-      id: "demo_user",
-      first_name: "Telegram",
-      last_name: "User",
-      username: "tele_user",
-    };
-
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
-
-      if (tg.initDataUnsafe?.user) {
-        localUser = tg.initDataUnsafe.user;
-      }
-      initData = tg.initData || "";
-    }
-
-    fetch("/api/telegram/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        initData: initData || `user=${encodeURIComponent(JSON.stringify(localUser))}`,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.user) {
-          setUser(data.user);
-          setBalance(data.user.balance);
-        } else {
-          setUser(localUser);
-          setBalance(100);
-        }
-      })
-      .catch(() => {
-        setUser(localUser);
-        setBalance(100);
-      });
-  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between max-w-md mx-auto w-full">
-      {/* 1. Global Navbar with Profile & Balance */}
-      <Navbar user={user} balance={balance} />
+      {/* 1. Global Navbar */}
+      <Navbar />
 
       {/* Main Content Area */}
       <main className="p-4 space-y-4 flex-1">
@@ -65,7 +22,7 @@ export default function TasksPage() {
           <div className="flex items-center space-x-2">
             <Link
               href="/"
-              className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white text-sm"
+              className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white text-sm active:scale-95 transition-transform"
             >
               ←
             </Link>
@@ -76,7 +33,7 @@ export default function TasksPage() {
           </span>
         </div>
 
-        {/* Task List (Extensible for adding more tasks anytime) */}
+        {/* Task List */}
         <div className="space-y-3">
           {/* TASK 1: Question Upload Task */}
           <div className="bg-gradient-to-r from-slate-900 via-sky-950/40 to-slate-900 border border-sky-500/40 rounded-3xl p-5 shadow-2xl space-y-4">

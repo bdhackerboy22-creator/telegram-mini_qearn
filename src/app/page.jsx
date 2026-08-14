@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useUser } from "@/context/UserContext";
 import Navbar from "@/components/Navbar";
 import ActionCards from "@/components/ActionCards";
 import WithdrawModal from "@/components/WithdrawModal";
@@ -8,78 +9,17 @@ import BalanceModal from "@/components/BalanceModal";
 import SupportModal from "@/components/SupportModal";
 
 export default function Home() {
-  const [user, setUser] = useState(null);
-  const [balance, setBalance] = useState(0);
-  const [userStats, setUserStats] = useState({
-    totalEarned: 0,
-    totalWithdrawn: 0,
-    adsWatchedCount: 0,
-  });
-  const [transactions, setTransactions] = useState([]);
+  const { user, balance, userStats, transactions, updateBalance } = useUser();
   const [activeModal, setActiveModal] = useState(null); // 'withdraw' | 'balance' | 'support' | null
 
-  useEffect(() => {
-    let initData = "";
-    let localUser = {
-      id: "demo_user",
-      first_name: "Telegram",
-      last_name: "User",
-      username: "tele_user",
-    };
-
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
-
-      if (tg.initDataUnsafe?.user) {
-        localUser = tg.initDataUnsafe.user;
-      }
-      initData = tg.initData || "";
-    }
-
-    // Authenticate and sync with MongoDB backend
-    fetch("/api/telegram/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        initData: initData || `user=${encodeURIComponent(JSON.stringify(localUser))}`,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.user) {
-          setUser(data.user);
-          setBalance(data.user.balance);
-          setUserStats({
-            totalEarned: data.user.totalEarned,
-            totalWithdrawn: data.user.totalWithdrawn,
-            adsWatchedCount: data.user.adsWatchedCount,
-          });
-          setTransactions(data.transactions || []);
-        } else {
-          setUser(localUser);
-          setBalance(100);
-        }
-      })
-      .catch(() => {
-        setUser(localUser);
-        setBalance(100);
-      });
-  }, []);
-
   const handleWithdrawSuccess = (newBalance, newTx, updatedStats = {}) => {
-    setBalance(newBalance);
-    setUserStats((prev) => ({ ...prev, ...updatedStats }));
-    if (newTx) {
-      setTransactions((prev) => [newTx, ...prev]);
-    }
+    updateBalance(newBalance, newTx, updatedStats);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between max-w-md mx-auto w-full select-none">
-      {/* 1. Global Navbar with Profile & Balance */}
-      <Navbar user={user} balance={balance} />
+      {/* 1. Global Navbar */}
+      <Navbar />
 
       {/* 2. Main Content Body */}
       <main className="p-4 space-y-4 flex-1 flex flex-col justify-center">

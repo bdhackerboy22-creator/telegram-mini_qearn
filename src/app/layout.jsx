@@ -1,4 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import { UserProvider } from "@/context/UserContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -41,7 +42,7 @@ export default function RootLayout({ children }) {
         ></script>
       </head>
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white overflow-x-hidden antialiased">
-        {children}
+        <UserProvider>{children}</UserProvider>
       </body>
     </html>
   );

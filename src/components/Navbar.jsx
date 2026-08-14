@@ -1,8 +1,11 @@
 "use client";
 
+import { useUser } from "@/context/UserContext";
 import Link from "next/link";
 
-export default function Navbar({ user, balance = 0 }) {
+export default function Navbar() {
+  const { user, balance } = useUser();
+
   const firstName = user?.first_name || "User";
   const username = user?.username ? `@${user.username}` : `ID: ${user?.id || ""}`;
   const avatarLetter = firstName ? firstName[0].toUpperCase() : "U";
@@ -35,7 +38,7 @@ export default function Navbar({ user, balance = 0 }) {
         <div className="flex items-center space-x-1.5 bg-slate-900 border border-slate-800/90 px-3 py-1.5 rounded-2xl shadow-inner">
           <span className="text-base">🪙</span>
           <span className="text-sm font-extrabold text-amber-400 font-mono tracking-tight">
-            {balance.toLocaleString()}
+            {(balance || 0).toLocaleString()}
           </span>
         </div>
       </div>
