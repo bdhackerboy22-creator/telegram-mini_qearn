@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import QuestionSubmission from "@/models/QuestionSubmission";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
 export async function POST(request) {
   try {
@@ -13,13 +14,17 @@ export async function POST(request) {
       );
     }
 
+    // 1. Upload the image directly to Cloudinary
+    const uploadedImageUrl = await uploadToCloudinary(imageBase64, "telegram_questions");
+
     await connectDB();
 
+    // 2. Save only the lightweight Cloudinary URL to MongoDB (Uses ~0 MB storage!)
     const submission = await QuestionSubmission.create({
       telegramId: String(telegramId),
       subjectName,
       subjectCode: subjectCode || "N/A",
-      imageBase64,
+      imageUrl: uploadedImageUrl,
       status: "pending",
       rewardAmount: 50,
     });
@@ -27,6 +32,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       submissionId: submission._id,
+      imageUrl: uploadedImageUrl,
       status: submission.status,
       message: "Question uploaded successfully! Status is pending verification.",
     });

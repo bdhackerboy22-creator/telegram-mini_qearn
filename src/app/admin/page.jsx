@@ -262,11 +262,11 @@ export default function AdminPage() {
 
                 {/* Question Image Preview */}
                 <div
-                  onClick={() => setSelectedImage(sub.imageBase64)}
+                  onClick={() => setSelectedImage(sub.imageUrl || sub.imageBase64)}
                   className="relative group rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 cursor-pointer max-h-48 flex items-center justify-center"
                 >
                   <img
-                    src={sub.imageBase64}
+                    src={sub.imageUrl || sub.imageBase64}
                     alt={sub.subjectName}
                     className="max-h-48 w-full object-contain group-hover:scale-105 transition-transform"
                   />

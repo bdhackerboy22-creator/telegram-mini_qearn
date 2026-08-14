@@ -15,9 +15,9 @@ const QuestionSubmissionSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    imageBase64: {
+    imageUrl: {
       type: String,
-      required: true,
+      required: true, // Cloudinary image URL
     },
     status: {
       type: String,
