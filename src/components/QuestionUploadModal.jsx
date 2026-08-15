@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { playMonetagRewardedInterstitial } from "@/lib/monetag";
 
 export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUploadSuccess }) {
@@ -10,6 +10,13 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [isError, setIsError] = useState(false);
+
+  // 15-second Verification Timer State
+  const [secondsRemaining, setSecondsRemaining] = useState(15);
+  const timerRef = useRef(null);
+  const adStartTimeRef = useRef(null);
+  const isWatchingAdRef = useRef(false);
 
   // Demo Subject List with codes (simulating database query)
   const subjects = [
@@ -21,25 +28,67 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
     { id: "6", name: "English Literature", code: "ENG-101", icon: "📚", department: "Arts" },
   ];
 
+  // Listen for user returning to Mini App early (Page Visibility API)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // If user comes back to mini app before 15 seconds have passed
+      if (document.visibilityState === "visible" && isWatchingAdRef.current) {
+        const elapsed = adStartTimeRef.current
+          ? Math.floor((Date.now() - adStartTimeRef.current) / 1000)
+          : 0;
+
+        if (elapsed < 15) {
+          // Came back too early -> INCOMPLETE!
+          if (timerRef.current) clearInterval(timerRef.current);
+          isWatchingAdRef.current = false;
+          setStep("ad");
+          setIsError(true);
+          setStatusMessage("❌ Ad Incomplete! You returned before 15 seconds. Please watch for full 15s to unlock.");
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
   if (!isOpen) return null;
 
-  // Step 1: Trigger Monetag Rewarded Interstitial Ad - Wait until ad COMPLETELY finishes!
+  // Step 1: Start 15s Ad Session & Open Monetag Ad
   const handleWatchAdAndProceed = async () => {
+    setIsError(false);
+    setStatusMessage("");
     setLoadingAd(true);
     setStep("watching_ad");
-    setStatusMessage("");
+    setSecondsRemaining(15);
+    isWatchingAdRef.current = true;
+    adStartTimeRef.current = Date.now();
 
+    // 1. Start the 15-second countdown timer inside Mini App
+    timerRef.current = setInterval(() => {
+      setSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          isWatchingAdRef.current = false;
+          // Completed 15s successfully -> Unlock subject selection!
+          setStep("select_subject");
+          setIsError(false);
+          setStatusMessage("🎉 15s Ad Completed! Please select your subject.");
+          setTimeout(() => setStatusMessage(""), 4000);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // 2. Trigger Monetag Ad (Opens in ad window/tab)
     try {
-      // Strictly wait for Monetag SDK to play and close
-      await playMonetagRewardedInterstitial();
-
-      // Only AFTER Monetag ad closes -> unlock the subject selection!
-      setStep("select_subject");
-      setStatusMessage("🎉 Ad completed successfully! Please select your subject.");
-      setTimeout(() => setStatusMessage(""), 4000);
+      playMonetagRewardedInterstitial();
     } catch (err) {
-      console.error("Ad playback error:", err);
-      setStep("select_subject");
+      console.warn("Ad trigger note:", err);
     }
 
     setLoadingAd(false);
@@ -63,11 +112,12 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
     }
   };
 
-  // Step 4: Submit to Backend DB
+  // Step 4: Submit to Backend DB & Cloudinary
   const handleSubmitQuestion = async () => {
     if (!imagePreview || !selectedSubject) return;
 
     setIsSubmitting(true);
+    setIsError(false);
     setStatusMessage("Uploading question image to Cloudinary...");
 
     try {
@@ -87,9 +137,11 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
         setStep("success");
         onUploadSuccess?.();
       } else {
+        setIsError(true);
         setStatusMessage(data.error || "Failed to submit question");
       }
     } catch (err) {
+      setIsError(true);
       setStatusMessage("Network error during upload");
     }
 
@@ -97,10 +149,13 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
   };
 
   const handleResetAndClose = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    isWatchingAdRef.current = false;
     setStep("ad");
     setSelectedSubject(null);
     setImagePreview(null);
     setStatusMessage("");
+    setIsError(false);
     onClose();
   };
 
@@ -122,12 +177,18 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
         </div>
 
         {statusMessage && (
-          <div className="p-3 bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs font-semibold rounded-xl text-center">
+          <div
+            className={`p-3 border text-xs font-semibold rounded-xl text-center ${
+              isError
+                ? "bg-rose-500/20 border-rose-500/30 text-rose-300"
+                : "bg-emerald-500/20 border-emerald-500/30 text-emerald-300 animate-pulse"
+            }`}
+          >
             {statusMessage}
           </div>
         )}
 
-        {/* STEP 1: Watch Rewarded Interstitial Ad */}
+        {/* STEP 1: Initial Ad Trigger */}
         {step === "ad" && (
           <div className="space-y-4 text-center py-4">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-3xl">
@@ -135,10 +196,10 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
             </div>
             <div className="space-y-1">
               <h4 className="text-base font-bold text-white">
-                Monetag Sponsored Ad
+                15-Second Sponsored Ad
               </h4>
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Please click the button below to watch the sponsored ad and unlock the question upload portal.
+                Click below to open the ad. You must stay on the ad for <span className="text-amber-400 font-bold">15 seconds</span> to unlock the upload section.
               </p>
             </div>
 
@@ -152,29 +213,35 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
               }`}
             >
               <span>⚡</span>
-              <span>{loadingAd ? "Opening Ad..." : "Watch Ad & Unlock Subjects"}</span>
+              <span>{loadingAd ? "Opening..." : "Watch Ad (15s Requirement)"}</span>
             </button>
           </div>
         )}
 
-        {/* STEP 1.5: Waiting while Ad is Displayed on Screen */}
+        {/* STEP 1.5: 15-Second Live Timer & Incomplete Checker */}
         {step === "watching_ad" && (
           <div className="text-center py-8 space-y-4">
-            <div className="w-20 h-20 mx-auto rounded-full border-4 border-slate-800 border-t-amber-400 animate-spin flex items-center justify-center">
-              <span className="text-2xl">🎬</span>
+            <div className="relative flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full border-4 border-slate-800 border-t-amber-400 animate-spin" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-3xl font-black text-amber-400 font-mono">
+                  {secondsRemaining}s
+                </span>
+              </div>
             </div>
-            <div className="space-y-1">
+
+            <div className="space-y-1.5">
               <h4 className="text-base font-bold text-white">
-                Ad is Currently Loading / Playing
+                Ad Session in Progress
               </h4>
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Please finish watching the sponsored ad. Once you complete or close the ad, subjects will unlock!
+                Stay on the ad tab for <span className="text-amber-400 font-bold">{secondsRemaining} seconds</span>. Returning before time will mark it as incomplete.
               </p>
             </div>
           </div>
         )}
 
-        {/* STEP 2: Subject List Selection */}
+        {/* STEP 2: Subject List Selection (Unlocked after 15s) */}
         {step === "select_subject" && (
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -182,7 +249,7 @@ export default function QuestionUploadModal({ isOpen, onClose, telegramId, onUpl
                 Select a Subject to Upload:
               </h4>
               <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                Ad Verified ✓
+                15s Ad Completed ✓
               </span>
             </div>
 
