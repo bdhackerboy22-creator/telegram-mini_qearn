@@ -18,8 +18,8 @@ export default function ActionCards({ onOpenModal }) {
     },
     {
       id: "withdraw",
-      title: "Withdraw",
-      subtitle: "Cashout to bKash / Nagad / TON",
+      title: "Recharge",
+      subtitle: "Mobile Recharge (GP, BL, Robi)",
       icon: "💳",
       isRoute: false,
       gradient: "from-emerald-500/20 via-emerald-600/10 to-transparent",

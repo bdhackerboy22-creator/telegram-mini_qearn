@@ -191,11 +191,26 @@ export default function BalanceModal({
                               : "bg-rose-500/20 text-rose-300"
                           }`}
                         >
-                          {tx.status}
+                          {tx.status === "completed" ? "Paid ✓" : tx.status}
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{tx.time}</p>
+                    {tx.accountNumber && (
+                      <p className="text-[10px] text-sky-400 font-mono mt-0.5">
+                        {tx.operator || "Recharge"}: {tx.accountNumber} ({tx.simType || "prepaid"})
+                      </p>
+                    )}
+                    {tx.trxId && (
+                      <p className="text-[10px] text-emerald-300 font-mono mt-0.5">
+                        Trx ID: {tx.trxId}
+                      </p>
+                    )}
+                    {tx.rejectReason && tx.status === "rejected" && (
+                      <p className="text-[10px] text-rose-300 mt-0.5">
+                        Note: {tx.rejectReason} (Refunded)
+                      </p>
+                    )}
+                    <p className="text-[10px] text-slate-500 mt-0.5">{tx.time}</p>
                   </div>
                   <span
                     className={`font-mono font-bold ${

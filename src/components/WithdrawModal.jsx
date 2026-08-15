@@ -9,26 +9,37 @@ export default function WithdrawModal({
   telegramId,
   onWithdrawSuccess,
 }) {
-  const [method, setMethod] = useState("bkash");
+  const [operator, setOperator] = useState("Grameenphone");
+  const [simType, setSimType] = useState("prepaid"); // 'prepaid' | 'postpaid'
   const [accountNumber, setAccountNumber] = useState("");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState("200");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const MIN_WITHDRAW_COINS = 500;
-  const coinRateText = "1,000 Coins = 50 BDT / $0.50";
+  const MIN_WITHDRAW_COINS = 200;
+  const COIN_PRICE_RATE = 0.1; // 1 Coin = 0.1 TK
+
+  const numAmount = parseInt(amount, 10) || 0;
+  const calculatedBDT = (numAmount * COIN_PRICE_RATE).toFixed(2);
+
+  const operators = [
+    { id: "Grameenphone", name: "GP", color: "from-sky-500 to-blue-600" },
+    { id: "Banglalink", name: "Banglalink", color: "from-amber-500 to-orange-600" },
+    { id: "Robi", name: "Robi", color: "from-rose-500 to-red-600" },
+    { id: "Airtel", name: "Airtel", color: "from-red-500 to-rose-600" },
+    { id: "Teletalk", name: "Teletalk", color: "from-emerald-500 to-teal-600" },
+  ];
 
   const handleWithdraw = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    const numAmount = parseInt(amount, 10);
     if (isNaN(numAmount) || numAmount < MIN_WITHDRAW_COINS) {
-      setError(`Minimum withdrawal is ${MIN_WITHDRAW_COINS} coins.`);
+      setError(`Minimum withdrawal is ${MIN_WITHDRAW_COINS} coins (৳20 TK Recharge).`);
       return;
     }
 
@@ -37,8 +48,8 @@ export default function WithdrawModal({
       return;
     }
 
-    if (!accountNumber.trim()) {
-      setError("Please provide your account number or wallet address.");
+    if (!accountNumber.trim() || accountNumber.trim().length < 11) {
+      setError("Please enter a valid 11-digit mobile number (e.g. 017XXXXXXXX).");
       return;
     }
 
@@ -49,8 +60,9 @@ export default function WithdrawModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           telegramId: telegramId || "demo_user",
-          method,
-          accountNumber,
+          operator,
+          simType,
+          accountNumber: accountNumber.trim(),
           amount: numAmount,
         }),
       });
@@ -61,18 +73,17 @@ export default function WithdrawModal({
         onWithdrawSuccess(data.balance, data.transaction, {
           totalWithdrawn: data.totalWithdrawn,
         });
-        setSuccess("Withdrawal request submitted! It will be reviewed by admin.");
-        setAmount("");
+        setSuccess(`🎉 ৳${data.bdtAmount} Recharge request submitted! Admin will process it shortly.`);
         setAccountNumber("");
         setTimeout(() => {
           setSuccess("");
           onClose();
         }, 3000);
       } else {
-        setError(data.error || "Failed to process withdrawal request.");
+        setError(data.error || "Failed to process recharge request.");
       }
     } catch (err) {
-      setError("Network error while submitting withdrawal.");
+      setError("Network error while submitting recharge.");
     }
 
     setLoading(false);
@@ -84,8 +95,11 @@ export default function WithdrawModal({
         {/* Header */}
         <div className="flex justify-between items-center pb-2 border-b border-slate-800">
           <div className="flex items-center space-x-2">
-            <span className="text-2xl">💳</span>
-            <h3 className="text-xl font-bold text-white">Withdraw Coins</h3>
+            <span className="text-2xl">📱</span>
+            <div>
+              <h3 className="text-lg font-bold text-white">Mobile Recharge</h3>
+              <p className="text-[11px] text-slate-400">Direct top-up to all Bangladeshi operators</p>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -103,8 +117,10 @@ export default function WithdrawModal({
           </span>
         </div>
 
-        <div className="text-[11px] text-slate-400 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
-          ℹ️ {coinRateText} | Min payout: {MIN_WITHDRAW_COINS} Coins
+        {/* Rate Info Banner */}
+        <div className="text-[11px] text-slate-300 bg-sky-950/40 border border-sky-500/30 p-2.5 rounded-xl flex items-center justify-between">
+          <span>🪙 1 Coin = ৳0.10 TK</span>
+          <span className="text-emerald-400 font-bold">Min: 200 Coins (৳20 TK)</span>
         </div>
 
         {error && (
@@ -120,23 +136,45 @@ export default function WithdrawModal({
         )}
 
         <form onSubmit={handleWithdraw} className="space-y-4">
-          {/* Method Selection */}
+          {/* Operator Selection */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-300">
-              Payment Method:
+              Select SIM Operator:
             </label>
             <div className="grid grid-cols-3 gap-2">
+              {operators.map((op) => (
+                <button
+                  type="button"
+                  key={op.id}
+                  onClick={() => setOperator(op.id)}
+                  className={`py-2 px-2 rounded-xl text-xs font-bold transition-all border ${
+                    operator === op.id
+                      ? "bg-sky-500/20 border-sky-400 text-sky-300 shadow-md shadow-sky-500/20"
+                      : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700"
+                  }`}
+                >
+                  {op.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* SIM Type (Prepaid / Postpaid) */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-300">
+              SIM Connection Type:
+            </label>
+            <div className="grid grid-cols-2 gap-2">
               {[
-                { id: "bkash", label: "bKash" },
-                { id: "nagad", label: "Nagad" },
-                { id: "ton", label: "TON / USDT" },
+                { id: "prepaid", label: "Prepaid" },
+                { id: "postpaid", label: "Postpaid" },
               ].map((item) => (
                 <button
                   type="button"
                   key={item.id}
-                  onClick={() => setMethod(item.id)}
+                  onClick={() => setSimType(item.id)}
                   className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
-                    method === item.id
+                    simType === item.id
                       ? "bg-emerald-500/20 border-emerald-400 text-emerald-300"
                       : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700"
                   }`}
@@ -147,46 +185,71 @@ export default function WithdrawModal({
             </div>
           </div>
 
-          {/* Account / Wallet Input */}
+          {/* Mobile Number Input */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-300">
-              {method === "ton" ? "Wallet Address" : "Account Number"}:
+              Mobile Number (11 Digits):
             </label>
             <input
-              type="text"
+              type="tel"
               required
               value={accountNumber}
               onChange={(e) => setAccountNumber(e.target.value)}
-              placeholder={method === "ton" ? "UQ..." : "017XXXXXXXX"}
-              className="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none"
+              placeholder="017XXXXXXXX"
+              className="w-full bg-slate-950 border border-slate-700 focus:border-sky-500 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none font-mono"
             />
           </div>
 
-          {/* Amount Input */}
+          {/* Coin Amount & Live BDT Conversion */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300">
-              Amount (Coins):
-            </label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-semibold text-slate-300">
+                Amount (Coins):
+              </label>
+              <span className="text-xs font-bold text-emerald-400 font-mono">
+                = ৳{calculatedBDT} BDT Recharge
+              </span>
+            </div>
             <input
               type="number"
               required
+              min={MIN_WITHDRAW_COINS}
+              step="50"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder={`Min ${MIN_WITHDRAW_COINS}`}
-              className="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none"
+              placeholder="200"
+              className="w-full bg-slate-950 border border-slate-700 focus:border-sky-500 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none font-mono"
             />
+          </div>
+
+          {/* Quick Amount Chips */}
+          <div className="flex space-x-2">
+            {[200, 300, 500, 1000].map((preset) => (
+              <button
+                type="button"
+                key={preset}
+                onClick={() => setAmount(String(preset))}
+                className={`flex-1 py-1.5 text-[11px] font-mono rounded-lg border transition-all ${
+                  numAmount === preset
+                    ? "bg-amber-500/20 border-amber-400 text-amber-300 font-bold"
+                    : "bg-slate-800/80 border-slate-700 text-slate-400 hover:bg-slate-700"
+                }`}
+              >
+                {preset} (৳{preset * 0.1})
+              </button>
+            ))}
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3 text-white font-bold text-sm rounded-xl shadow-lg transition-all ${
+            className={`w-full py-3.5 text-white font-bold text-sm rounded-xl shadow-lg transition-all ${
               loading
                 ? "bg-slate-700 cursor-not-allowed"
                 : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20 active:scale-95"
             }`}
           >
-            {loading ? "Submitting..." : "Submit Withdrawal Request"}
+            {loading ? "Processing..." : `Request ৳${calculatedBDT} Recharge`}
           </button>
         </form>
       </div>

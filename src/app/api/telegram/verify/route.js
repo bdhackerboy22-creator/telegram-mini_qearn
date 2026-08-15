@@ -4,6 +4,8 @@ import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import Transaction from "@/models/Transaction";
 
+const WELCOME_BONUS = 50;
+
 export async function POST(request) {
   try {
     const { initData } = await request.json();
@@ -39,14 +41,14 @@ export async function POST(request) {
     let user = await User.findOne({ telegramId });
 
     if (!user) {
-      // Create new user in Database with initial welcome bonus
+      // Create new user in Database with 50 Coins welcome bonus
       user = await User.create({
         telegramId,
         firstName: telegramUser.first_name || "",
         lastName: telegramUser.last_name || "",
         username: telegramUser.username || "",
-        balance: 100,
-        totalEarned: 100,
+        balance: WELCOME_BONUS,
+        totalEarned: WELCOME_BONUS,
       });
 
       // Record welcome bonus transaction
@@ -54,7 +56,7 @@ export async function POST(request) {
         telegramId,
         title: "Welcome Bonus",
         type: "earn",
-        amount: 100,
+        amount: WELCOME_BONUS,
         status: "completed",
       });
     } else {
@@ -68,7 +70,7 @@ export async function POST(request) {
     // Fetch user transactions
     const transactions = await Transaction.find({ telegramId })
       .sort({ createdAt: -1 })
-      .limit(20)
+      .limit(30)
       .lean();
 
     return NextResponse.json({
@@ -91,7 +93,14 @@ export async function POST(request) {
         amount: t.amount,
         status: t.status,
         method: t.method,
-        time: new Date(t.createdAt).toLocaleTimeString([], {
+        accountNumber: t.accountNumber,
+        operator: t.operator,
+        simType: t.simType,
+        trxId: t.trxId,
+        rejectReason: t.rejectReason,
+        time: new Date(t.createdAt).toLocaleString([], {
+          month: "short",
+          day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
         }),

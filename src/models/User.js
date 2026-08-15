@@ -22,11 +22,11 @@ const UserSchema = new mongoose.Schema(
     },
     balance: {
       type: Number,
-      default: 100, // Welcome signup bonus
+      default: 50, // Welcome signup bonus: 50 Coins
     },
     totalEarned: {
       type: Number,
-      default: 100,
+      default: 50,
     },
     totalWithdrawn: {
       type: Number,
