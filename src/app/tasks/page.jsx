@@ -1,18 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { useUser } from "@/context/UserContext";
 import Navbar from "@/components/Navbar";
-import QuestionUploadModal from "@/components/QuestionUploadModal";
 
 export default function TasksPage() {
-  const { user } = useUser();
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between max-w-md mx-auto w-full">
-      {/* 1. Global Navbar */}
+      {/* 1. Global Navbar with Profile & Balance */}
       <Navbar />
 
       {/* Main Content Area */}
@@ -35,7 +29,7 @@ export default function TasksPage() {
 
         {/* Task List */}
         <div className="space-y-3">
-          {/* TASK 1: Question Upload Task */}
+          {/* TASK 1: Question Upload Task (Navigates directly to dedicated full-screen route) */}
           <div className="bg-gradient-to-r from-slate-900 via-sky-950/40 to-slate-900 border border-sky-500/40 rounded-3xl p-5 shadow-2xl space-y-4">
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-3.5">
@@ -50,20 +44,20 @@ export default function TasksPage() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Watch ad, pick subject & upload question photo
+                    Watch 15s ad, pick available subject & upload photo
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="pt-1">
-              <button
-                onClick={() => setIsUploadModalOpen(true)}
-                className="w-full py-3.5 bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 hover:from-sky-400 hover:to-purple-500 text-white font-bold text-sm rounded-2xl shadow-xl shadow-sky-500/20 active:scale-98 transition-all flex items-center justify-center space-x-2"
+              <Link
+                href="/tasks/upload-question"
+                className="w-full py-3.5 bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 hover:from-sky-400 hover:to-purple-500 text-white font-bold text-sm rounded-2xl shadow-xl shadow-sky-500/20 active:scale-98 transition-all flex items-center justify-center space-x-2 text-center"
               >
                 <span>⚡</span>
                 <span>Start Upload Task</span>
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -75,13 +69,6 @@ export default function TasksPage() {
           Telegram Mini App • Task Hub
         </p>
       </footer>
-
-      {/* Dedicated Question Upload Modal */}
-      <QuestionUploadModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        telegramId={user?.id}
-      />
     </div>
   );
 }
