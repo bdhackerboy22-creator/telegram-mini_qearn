@@ -4,7 +4,7 @@ import { useUser } from "@/context/UserContext";
 import Link from "next/link";
 
 export default function Navbar() {
-  const { user, balance } = useUser();
+  const { user, balance, refreshUser, isRefreshing } = useUser();
 
   const firstName = user?.first_name || "User";
   const username = user?.username ? `@${user.username}` : `ID: ${user?.id || ""}`;
@@ -34,13 +34,24 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {/* Right: Live Coin Balance Capsule */}
-        <div className="flex items-center space-x-1.5 bg-slate-900 border border-slate-800/90 px-3 py-1.5 rounded-2xl shadow-inner">
+        {/* Right: Live Coin Balance Capsule with Interactive Refresh */}
+        <button
+          onClick={refreshUser}
+          title="Click to sync balance"
+          className="flex items-center space-x-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800/90 px-3 py-1.5 rounded-2xl shadow-inner active:scale-95 transition-all"
+        >
           <span className="text-base">🪙</span>
           <span className="text-sm font-extrabold text-amber-400 font-mono tracking-tight">
             {(balance || 0).toLocaleString()}
           </span>
-        </div>
+          <span
+            className={`text-xs text-slate-500 ml-1 ${
+              isRefreshing ? "animate-spin text-sky-400" : ""
+            }`}
+          >
+            🔄
+          </span>
+        </button>
       </div>
     </header>
   );

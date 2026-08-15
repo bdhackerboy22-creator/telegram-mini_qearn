@@ -1,23 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import Navbar from "@/components/Navbar";
+import { useUser } from "@/context/UserContext";
 
-export default function WithdrawModal({
-  isOpen,
-  onClose,
-  balance,
-  telegramId,
-  onWithdrawSuccess,
-}) {
+export default function RechargePage() {
+  const { user, balance, updateBalance } = useUser();
+
   const [operator, setOperator] = useState("Grameenphone");
-  const [simType, setSimType] = useState("prepaid"); // 'prepaid' | 'postpaid'
+  const [simType, setSimType] = useState("prepaid");
   const [accountNumber, setAccountNumber] = useState("");
   const [amount, setAmount] = useState("200");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
-
-  if (!isOpen) return null;
 
   const MIN_WITHDRAW_COINS = 200;
   const COIN_PRICE_RATE = 0.1; // 1 Coin = 0.1 TK
@@ -26,11 +23,11 @@ export default function WithdrawModal({
   const calculatedBDT = (numAmount * COIN_PRICE_RATE).toFixed(2);
 
   const operators = [
-    { id: "Grameenphone", name: "GP", color: "from-sky-500 to-blue-600" },
-    { id: "Banglalink", name: "Banglalink", color: "from-amber-500 to-orange-600" },
-    { id: "Robi", name: "Robi", color: "from-rose-500 to-red-600" },
-    { id: "Airtel", name: "Airtel", color: "from-red-500 to-rose-600" },
-    { id: "Teletalk", name: "Teletalk", color: "from-emerald-500 to-teal-600" },
+    { id: "Grameenphone", name: "GP" },
+    { id: "Banglalink", name: "Banglalink" },
+    { id: "Robi", name: "Robi" },
+    { id: "Airtel", name: "Airtel" },
+    { id: "Teletalk", name: "Teletalk" },
   ];
 
   const handleWithdraw = async (e) => {
@@ -59,7 +56,7 @@ export default function WithdrawModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          telegramId: telegramId || "demo_user",
+          telegramId: user?.id || "demo_user",
           operator,
           simType,
           accountNumber: accountNumber.trim(),
@@ -70,15 +67,11 @@ export default function WithdrawModal({
       const data = await res.json();
 
       if (data.success) {
-        onWithdrawSuccess(data.balance, data.transaction, {
+        updateBalance(data.balance, data.transaction, {
           totalWithdrawn: data.totalWithdrawn,
         });
         setSuccess(`🎉 ৳${data.bdtAmount} Recharge request submitted! Admin will process it shortly.`);
         setAccountNumber("");
-        setTimeout(() => {
-          setSuccess("");
-          onClose();
-        }, 3000);
       } else {
         setError(data.error || "Failed to process recharge request.");
       }
@@ -90,52 +83,56 @@ export default function WithdrawModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center pb-2 border-b border-slate-800">
-          <div className="flex items-center space-x-2">
-            <span className="text-2xl">📱</span>
-            <div>
-              <h3 className="text-lg font-bold text-white">Mobile Recharge</h3>
-              <p className="text-[11px] text-slate-400">Direct top-up to all Bangladeshi operators</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm"
-          >
-            ✕
-          </button>
-        </div>
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between max-w-md mx-auto w-full">
+      {/* 1. Global Navbar */}
+      <Navbar />
 
-        {/* Current Balance Banner */}
-        <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700 flex justify-between items-center text-sm">
-          <span className="text-slate-400">Available Balance:</span>
-          <span className="font-extrabold text-amber-400 font-mono text-base">
-            🪙 {balance.toLocaleString()}
+      {/* Main Content Area */}
+      <main className="p-4 space-y-4 flex-1">
+        {/* Navigation Breadcrumb */}
+        <div className="flex items-center justify-between pb-1 border-b border-slate-800/80">
+          <div className="flex items-center space-x-2">
+            <Link
+              href="/"
+              className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white text-sm active:scale-95 transition-transform"
+            >
+              ←
+            </Link>
+            <h1 className="text-base font-bold text-white">Mobile Recharge</h1>
+          </div>
+
+          <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+            1 Coin = ৳0.10 TK
           </span>
         </div>
 
         {/* Rate Info Banner */}
-        <div className="text-[11px] text-slate-300 bg-sky-950/40 border border-sky-500/30 p-2.5 rounded-xl flex items-center justify-between">
-          <span>🪙 1 Coin = ৳0.10 TK</span>
-          <span className="text-emerald-400 font-bold">Min: 200 Coins (৳20 TK)</span>
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 flex justify-between items-center text-xs">
+          <div>
+            <span className="text-slate-400 block">Available Balance:</span>
+            <span className="font-extrabold text-amber-400 font-mono text-base">
+              🪙 {(balance || 0).toLocaleString()} Coins
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="text-slate-400 block">Min Cashout:</span>
+            <span className="text-emerald-400 font-bold font-mono">200 Coins (৳20 TK)</span>
+          </div>
         </div>
 
         {error && (
-          <div className="p-3 bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-semibold rounded-xl text-center">
+          <div className="p-3 bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-semibold rounded-2xl text-center">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold rounded-xl text-center">
+          <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold rounded-2xl text-center">
             {success}
           </div>
         )}
 
-        <form onSubmit={handleWithdraw} className="space-y-4">
+        <form onSubmit={handleWithdraw} className="space-y-4 bg-slate-900/60 border border-slate-800 rounded-3xl p-5 shadow-xl">
           {/* Operator Selection */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-300">
@@ -229,7 +226,7 @@ export default function WithdrawModal({
                 type="button"
                 key={preset}
                 onClick={() => setAmount(String(preset))}
-                className={`flex-1 py-1.5 text-[11px] font-mono rounded-lg border transition-all ${
+                className={`flex-1 py-2 text-xs font-mono rounded-xl border transition-all ${
                   numAmount === preset
                     ? "bg-amber-500/20 border-amber-400 text-amber-300 font-bold"
                     : "bg-slate-800/80 border-slate-700 text-slate-400 hover:bg-slate-700"
@@ -243,16 +240,23 @@ export default function WithdrawModal({
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3.5 text-white font-bold text-sm rounded-xl shadow-lg transition-all ${
+            className={`w-full py-4 text-white font-bold text-sm rounded-2xl shadow-lg transition-all ${
               loading
                 ? "bg-slate-700 cursor-not-allowed"
                 : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20 active:scale-95"
             }`}
           >
-            {loading ? "Processing..." : `Request ৳${calculatedBDT} Recharge`}
+            {loading ? "Processing..." : `Submit ৳${calculatedBDT} Recharge Request`}
           </button>
         </form>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="w-full text-center py-4">
+        <p className="text-[11px] text-slate-600 font-medium">
+          Telegram Mini App • Recharge Hub
+        </p>
+      </footer>
     </div>
   );
 }

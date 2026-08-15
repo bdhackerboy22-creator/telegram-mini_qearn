@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 const UserContext = createContext(null);
 
@@ -14,26 +14,11 @@ export function UserProvider({ children }) {
   });
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // App Initial Load: Verify and load user ONCE
-  useEffect(() => {
-    // Check if already authenticated in session
-    const cachedUser = sessionStorage.getItem("tg_user_data");
-    if (cachedUser) {
-      try {
-        const parsed = JSON.parse(cachedUser);
-        setUser(parsed.user);
-        setBalance(parsed.user.balance || 0);
-        setUserStats({
-          totalEarned: parsed.user.totalEarned || 0,
-          totalWithdrawn: parsed.user.totalWithdrawn || 0,
-          adsWatchedCount: parsed.user.adsWatchedCount || 0,
-        });
-        setTransactions(parsed.transactions || []);
-        setLoading(false);
-        return;
-      } catch (_) {}
-    }
+  // Sync / Verify with Database
+  const fetchUserData = useCallback(async (isInitial = false) => {
+    if (!isInitial) setIsRefreshing(true);
 
     let initData = "";
     let localUser = {
@@ -54,57 +39,60 @@ export function UserProvider({ children }) {
       initData = tg.initData || "";
     }
 
-    // Single Auth API Call on App Launch
-    fetch("/api/telegram/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        initData: initData || `user=${encodeURIComponent(JSON.stringify(localUser))}`,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.user) {
-          setUser(data.user);
-          setBalance(data.user.balance);
-          setUserStats({
-            totalEarned: data.user.totalEarned || 0,
-            totalWithdrawn: data.user.totalWithdrawn || 0,
-            adsWatchedCount: data.user.adsWatchedCount || 0,
-          });
-          setTransactions(data.transactions || []);
-
-          // Cache in session to eliminate route reload latency
-          sessionStorage.setItem("tg_user_data", JSON.stringify(data));
-        } else {
-          setUser(localUser);
-          setBalance(100);
-        }
-      })
-      .catch(() => {
-        setUser(localUser);
-        setBalance(100);
-      })
-      .finally(() => {
-        setLoading(false);
+    try {
+      const res = await fetch("/api/telegram/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          initData: initData || `user=${encodeURIComponent(JSON.stringify(localUser))}`,
+        }),
       });
+
+      const data = await res.json();
+      if (data.success && data.user) {
+        setUser(data.user);
+        setBalance(data.user.balance);
+        setUserStats({
+          totalEarned: data.user.totalEarned || 0,
+          totalWithdrawn: data.user.totalWithdrawn || 0,
+          adsWatchedCount: data.user.adsWatchedCount || 0,
+        });
+        setTransactions(data.transactions || []);
+      } else {
+        setUser(localUser);
+        setBalance(50);
+      }
+    } catch (_) {
+      if (isInitial) {
+        setUser(localUser);
+        setBalance(50);
+      }
+    } finally {
+      if (isInitial) setLoading(false);
+      setIsRefreshing(false);
+    }
   }, []);
+
+  // Initial Load on App Open
+  useEffect(() => {
+    fetchUserData(true);
+
+    // Auto-refresh when user switches back to the app window/tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchUserData(false);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [fetchUserData]);
 
   const updateBalance = (newBalance, newTx = null, statsUpdate = {}) => {
     setBalance(newBalance);
     setUserStats((prev) => ({ ...prev, ...statsUpdate }));
     if (newTx) {
       setTransactions((prev) => [newTx, ...prev]);
-    }
-
-    // Sync cache
-    const cached = sessionStorage.getItem("tg_user_data");
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        parsed.user.balance = newBalance;
-        sessionStorage.setItem("tg_user_data", JSON.stringify(parsed));
-      } catch (_) {}
     }
   };
 
@@ -116,6 +104,8 @@ export function UserProvider({ children }) {
         userStats,
         transactions,
         loading,
+        isRefreshing,
+        refreshUser: () => fetchUserData(false),
         updateBalance,
       }}
     >
@@ -130,10 +120,10 @@ export function UserProvider({ children }) {
           </div>
           <div className="space-y-1">
             <h2 className="text-lg font-bold text-white tracking-wide">
-              Verifying Telegram Session...
+              Connecting Telegram Session...
             </h2>
             <p className="text-xs text-slate-400 font-mono">
-              Loading account & coin balance
+              Fetching live balance & history
             </p>
           </div>
         </div>

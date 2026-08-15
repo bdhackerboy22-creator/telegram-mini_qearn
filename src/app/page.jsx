@@ -1,24 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { useUser } from "@/context/UserContext";
 import Navbar from "@/components/Navbar";
 import ActionCards from "@/components/ActionCards";
-import WithdrawModal from "@/components/WithdrawModal";
-import BalanceModal from "@/components/BalanceModal";
-import SupportModal from "@/components/SupportModal";
+import { useUser } from "@/context/UserContext";
 
 export default function Home() {
-  const { user, balance, userStats, transactions, updateBalance } = useUser();
-  const [activeModal, setActiveModal] = useState(null); // 'withdraw' | 'balance' | 'support' | null
-
-  const handleWithdrawSuccess = (newBalance, newTx, updatedStats = {}) => {
-    updateBalance(newBalance, newTx, updatedStats);
-  };
+  const { user } = useUser();
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between max-w-md mx-auto w-full select-none">
-      {/* 1. Global Navbar */}
+      {/* 1. Global Navbar with Live Balance */}
       <Navbar />
 
       {/* 2. Main Content Body */}
@@ -35,48 +26,25 @@ export default function Home() {
             Welcome, {user?.first_name || "Earner"}! 👋
           </h2>
           <p className="text-xs text-slate-400">
-            Complete tasks, earn coins and cashout to your wallet.
+            Upload exam question photos, earn coins and get mobile recharge!
           </p>
         </div>
 
-        {/* 3. Main Menu Action Grid */}
+        {/* 3. Main Menu Action Grid (Direct Routes: /tasks, /recharge, /history, /support) */}
         <div className="space-y-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
             Dashboard Menu
           </h3>
-          <ActionCards onOpenModal={(modalId) => setActiveModal(modalId)} />
+          <ActionCards />
         </div>
       </main>
 
       {/* Footer */}
       <footer className="w-full text-center py-4">
         <p className="text-[11px] text-slate-600 font-medium">
-          Telegram Mini App • Clean Architecture
+          Telegram Mini App • Full Routing Architecture
         </p>
       </footer>
-
-      {/* Action Modals */}
-      <WithdrawModal
-        isOpen={activeModal === "withdraw"}
-        onClose={() => setActiveModal(null)}
-        balance={balance}
-        telegramId={user?.id}
-        onWithdrawSuccess={handleWithdrawSuccess}
-      />
-
-      <BalanceModal
-        isOpen={activeModal === "balance"}
-        onClose={() => setActiveModal(null)}
-        balance={balance}
-        userStats={userStats}
-        transactions={transactions}
-        telegramId={user?.id}
-      />
-
-      <SupportModal
-        isOpen={activeModal === "support"}
-        onClose={() => setActiveModal(null)}
-      />
     </div>
   );
 }
