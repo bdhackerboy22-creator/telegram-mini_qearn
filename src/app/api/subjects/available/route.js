@@ -14,7 +14,7 @@ export async function GET(request) {
     let scheduleData = null;
     let booklistData = null;
 
-    // 1. Fetch API 1 (Routine Schedule with Date & Codes) and API 2 (Booklist with Code & Name) in parallel
+    // 1. Fetch live APIs
     try {
       const [resSchedule, resBooklist] = await Promise.all([
         fetch(apiScheduleUrl, { next: { revalidate: 120 } }),
@@ -27,10 +27,8 @@ export async function GET(request) {
       console.error("External API fetch error:", apiErr);
     }
 
-    // 2. Build Book Map from Nested Booklist API
-    // Hierarchy: data[] -> departments[] -> regulation[] -> semesters[] -> subjects[]
+    // 2. Build Book Map from Booklist API
     const bookMap = new Map();
-
     if (booklistData?.data && Array.isArray(booklistData.data)) {
       booklistData.data.forEach((course) => {
         const courseName = course.course_name || "Diploma";
@@ -57,7 +55,7 @@ export async function GET(request) {
       });
     }
 
-    // 3. Build Routine Items from Routine API (date, time, codes)
+    // 3. Build Routine Items
     const masterMergedList = [];
     const seenRoutineCodes = new Set();
 
@@ -90,27 +88,28 @@ export async function GET(request) {
       });
     }
 
-    // 4. Fetch Already Uploaded Questions from MongoDB
+    // 4. Fetch ONLY APPROVED/VERIFIED Questions from MongoDB
+    // Pending or Rejected subjects will STILL remain visible in the list!
     await connectDB();
-    const uploadedSubmissions = await QuestionSubmission.find(
-      { status: { $in: ["pending", "verified"] } },
-      { subjectCode: 1, subjectDate: 1 }
+    const verifiedSubmissions = await QuestionSubmission.find(
+      { status: "verified" },
+      { subjectCode: 1 }
     ).lean();
 
-    const uploadedCodesSet = new Set(
-      uploadedSubmissions.map((s) => String(s.subjectCode || "").trim())
+    const verifiedCodesSet = new Set(
+      verifiedSubmissions.map((s) => String(s.subjectCode || "").trim())
     );
 
-    // 5. Exclude already uploaded subjects!
+    // 5. Exclude ONLY verified/approved subjects!
     const availableList = masterMergedList.filter(
-      (item) => !uploadedCodesSet.has(item.code)
+      (item) => !verifiedCodesSet.has(item.code)
     );
 
     return NextResponse.json({
       success: true,
       title: scheduleData?.data?.title || "Diploma Routine & Subjects",
       totalRoutineSubjects: masterMergedList.length,
-      alreadyUploadedCount: uploadedCodesSet.size,
+      verifiedUploadedCount: verifiedCodesSet.size,
       availableCount: availableList.length,
       subjects: availableList,
     });

@@ -17,7 +17,7 @@ const QuestionSubmissionSchema = new mongoose.Schema(
       index: true,
     },
     subjectDate: {
-      type: String, // Exam/Schedule Date from API 1 (e.g. "2026-08-20")
+      type: String, // Exam/Schedule Date from API 1 (e.g. "1/4/2026")
       default: "",
     },
     imageUrl: {
@@ -28,10 +28,15 @@ const QuestionSubmissionSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "verified", "rejected"],
       default: "pending",
+      index: true,
     },
     rewardAmount: {
       type: Number,
       default: 50,
+    },
+    rejectReason: {
+      type: String,
+      default: "", // Admin note/reason when rejected
     },
   },
   { timestamps: true }

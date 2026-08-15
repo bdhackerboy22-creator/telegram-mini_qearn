@@ -4,7 +4,7 @@ import QuestionSubmission from "@/models/QuestionSubmission";
 import User from "@/models/User";
 import Transaction from "@/models/Transaction";
 
-// Simple secure admin passcode (can be set in env or default to "admin123")
+// Simple secure admin passcode
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "admin123";
 
 // GET: Fetch all submissions, stats and user counts
@@ -20,7 +20,7 @@ export async function GET(request) {
     await connectDB();
 
     const [submissions, totalUsers, totalTransactions] = await Promise.all([
-      QuestionSubmission.find().sort({ createdAt: -1 }).limit(100).lean(),
+      QuestionSubmission.find().sort({ createdAt: -1 }).limit(200).lean(),
       User.countDocuments(),
       Transaction.countDocuments(),
     ]);
@@ -47,10 +47,10 @@ export async function GET(request) {
   }
 }
 
-// POST: Action to Approve or Reject a Question Submission
+// POST: Action to Approve or Reject a Question Submission (with Note/Reason)
 export async function POST(request) {
   try {
-    const { passkey, submissionId, action } = await request.json();
+    const { passkey, submissionId, action, rejectReason } = await request.json();
 
     if (passkey !== ADMIN_SECRET) {
       return NextResponse.json({ success: false, error: "Unauthorized access" }, { status: 401 });
@@ -78,7 +78,7 @@ export async function POST(request) {
       submission.status = "verified";
       await submission.save();
 
-      // Find user and credit reward coins
+      // Credit Coins to User
       const reward = submission.rewardAmount || 50;
       const user = await User.findOne({ telegramId: submission.telegramId });
 
@@ -104,12 +104,14 @@ export async function POST(request) {
       });
     } else {
       submission.status = "rejected";
+      submission.rejectReason = rejectReason || "Blurry/Invalid photo";
       await submission.save();
 
       return NextResponse.json({
         success: true,
         message: "Submission has been rejected.",
         status: "rejected",
+        rejectReason: submission.rejectReason,
       });
     }
   } catch (error) {

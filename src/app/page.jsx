@@ -70,6 +70,7 @@ export default function Home() {
         balance={balance}
         userStats={userStats}
         transactions={transactions}
+        telegramId={user?.id}
       />
 
       <SupportModal

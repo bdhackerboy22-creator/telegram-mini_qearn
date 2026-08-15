@@ -13,6 +13,10 @@ export default function AdminPage() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [statusMessage, setStatusMessage] = useState("");
 
+  // Reject Note Modal State
+  const [rejectingItem, setRejectingItem] = useState(null);
+  const [rejectNote, setRejectNote] = useState("");
+
   const handleLogin = (e) => {
     e.preventDefault();
     if (passkey.trim()) {
@@ -49,7 +53,34 @@ export default function AdminPage() {
     }
   }, []);
 
-  const handleAction = async (submissionId, action) => {
+  // Download image with format: SubjectName_SubjectCode_Date.jpg
+  const handleDownloadImage = async (sub) => {
+    const imgUrl = sub.imageUrl || sub.imageBase64;
+    if (!imgUrl) return;
+
+    try {
+      const cleanName = (sub.subjectName || "Subject").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const cleanCode = (sub.subjectCode || "Code").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const cleanDate = (sub.subjectDate || "NoDate").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const fileName = `${cleanName}_${cleanCode}_${cleanDate}.jpg`;
+
+      const response = await fetch(imgUrl);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      window.open(imgUrl, "_blank");
+    }
+  };
+
+  const handleAction = async (submissionId, action, reason = "") => {
     setProcessingId(submissionId);
     try {
       const res = await fetch("/api/admin/submissions", {
@@ -59,6 +90,7 @@ export default function AdminPage() {
           passkey,
           submissionId,
           action,
+          rejectReason: reason,
         }),
       });
 
@@ -67,7 +99,9 @@ export default function AdminPage() {
         // Update state locally
         setSubmissions((prev) =>
           prev.map((sub) =>
-            sub._id === submissionId ? { ...sub, status: data.status } : sub
+            sub._id === submissionId
+              ? { ...sub, status: data.status, rejectReason: reason || sub.rejectReason }
+              : sub
           )
         );
 
@@ -82,6 +116,11 @@ export default function AdminPage() {
             rejectedCount: !isApprove ? prev.rejectedCount + 1 : prev.rejectedCount,
           };
         });
+
+        if (action === "reject") {
+          setRejectingItem(null);
+          setRejectNote("");
+        }
       } else {
         alert(data.error || "Action failed");
       }
@@ -238,14 +277,26 @@ export default function AdminPage() {
               className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl flex flex-col justify-between"
             >
               <div className="space-y-3">
-                {/* User & Subject info */}
+                {/* User, Subject & Date Info */}
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-bold text-white text-base">{sub.subjectName}</h3>
-                    <p className="text-xs text-sky-400 font-mono">Code: {sub.subjectCode}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <div className="flex items-center space-x-2 mt-0.5">
+                      <span className="text-xs text-sky-400 font-mono">Code: {sub.subjectCode}</span>
+                      {sub.subjectDate && (
+                        <span className="text-[10px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.2 rounded-full">
+                          📅 {sub.subjectDate}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">
                       User Telegram ID: <span className="font-mono text-slate-300">{sub.telegramId}</span>
                     </p>
+                    {sub.rejectReason && (
+                      <p className="text-xs text-rose-400 mt-1 bg-rose-500/10 p-2 rounded-xl border border-rose-500/20">
+                        ⚠️ Reject Reason: {sub.rejectReason}
+                      </p>
+                    )}
                   </div>
                   <span
                     className={`text-[10px] uppercase font-bold px-2.5 py-1 rounded-full border ${
@@ -274,6 +325,15 @@ export default function AdminPage() {
                     🔍 Click to Zoom Image
                   </div>
                 </div>
+
+                {/* Download Image Button (Named: Subject_Code_Date.jpg) */}
+                <button
+                  onClick={() => handleDownloadImage(sub)}
+                  className="w-full py-2 bg-slate-800 hover:bg-slate-700 active:scale-98 text-slate-300 font-semibold text-xs rounded-xl flex items-center justify-center space-x-1.5 transition-all border border-slate-700"
+                >
+                  <span>⬇️</span>
+                  <span>Download Image ({sub.subjectCode}_{sub.subjectDate || "date"}.jpg)</span>
+                </button>
               </div>
 
               {/* Action Buttons */}
@@ -287,11 +347,14 @@ export default function AdminPage() {
                     {processingId === sub._id ? "..." : "✓ Approve (+50 Coins)"}
                   </button>
                   <button
-                    onClick={() => handleAction(sub._id, "reject")}
+                    onClick={() => {
+                      setRejectingItem(sub);
+                      setRejectNote("");
+                    }}
                     disabled={processingId === sub._id}
                     className="py-2.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 active:scale-98 text-rose-300 font-bold text-xs rounded-xl transition-all"
                   >
-                    {processingId === sub._id ? "..." : "✕ Reject"}
+                    ✕ Reject with Note
                   </button>
                 </div>
               ) : (
@@ -303,6 +366,56 @@ export default function AdminPage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Reject with Note Modal */}
+      {rejectingItem && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+              <h3 className="font-bold text-white text-sm">Reject Submission Note</h3>
+              <button
+                onClick={() => setRejectingItem(null)}
+                className="w-7 h-7 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Enter reason for rejecting <span className="text-white font-semibold">{rejectingItem.subjectName} ({rejectingItem.subjectCode})</span>:
+            </p>
+
+            <textarea
+              rows="3"
+              placeholder="e.g. Blurry photo / Incorrect year / Duplicate question..."
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 focus:border-rose-500 rounded-xl p-3 text-xs text-white focus:outline-none"
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setRejectingItem(null)}
+                className="py-2.5 bg-slate-800 text-slate-400 font-bold text-xs rounded-xl hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() =>
+                  handleAction(
+                    rejectingItem._id,
+                    "reject",
+                    rejectNote.trim() || "Question image is invalid/blurry"
+                  )
+                }
+                className="py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-lg"
+              >
+                Confirm Reject
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
