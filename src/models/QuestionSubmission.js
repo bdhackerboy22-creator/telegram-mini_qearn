@@ -14,6 +14,11 @@ const QuestionSubmissionSchema = new mongoose.Schema(
     subjectCode: {
       type: String,
       required: true,
+      index: true,
+    },
+    subjectDate: {
+      type: String, // Exam/Schedule Date from API 1 (e.g. "2026-08-20")
+      default: "",
     },
     imageUrl: {
       type: String,

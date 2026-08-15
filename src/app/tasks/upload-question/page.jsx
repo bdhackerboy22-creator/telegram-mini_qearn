@@ -146,6 +146,7 @@ export default function SubjectsUploadPage() {
           telegramId: user?.id || "demo_user",
           subjectName: selectedSubject.name,
           subjectCode: selectedSubject.code,
+          subjectDate: selectedSubject.date || "",
           imageBase64: imagePreview,
         }),
       });
@@ -317,9 +318,16 @@ export default function SubjectsUploadPage() {
                         <h4 className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors">
                           {sub.name}
                         </h4>
-                        <span className="text-[11px] font-mono text-slate-400">
-                          Code: <span className="text-sky-400 font-bold">{sub.code}</span> • {sub.department}
-                        </span>
+                        <div className="flex items-center space-x-2 mt-0.5">
+                          <span className="text-[11px] font-mono text-slate-400">
+                            Code: <span className="text-sky-400 font-bold">{sub.code}</span>
+                          </span>
+                          {sub.date && (
+                            <span className="text-[10px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.2 rounded-full">
+                              📅 {sub.date}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <span className="text-xs font-bold text-sky-400 bg-sky-500/10 px-3 py-1.5 rounded-xl group-hover:bg-sky-500 group-hover:text-white transition-all">

@@ -1,61 +1,121 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import Subject from "@/models/Subject";
 import QuestionSubmission from "@/models/QuestionSubmission";
-
-// Default Master Subjects if DB is empty initially
-const INITIAL_MASTER_SUBJECTS = [
-  { code: "MATH-101", name: "Higher Mathematics Part I", department: "Science", icon: "📐" },
-  { code: "MATH-102", name: "Higher Mathematics Part II", department: "Science", icon: "📐" },
-  { code: "PHY-201", name: "Physics Part I", department: "Science", icon: "⚡" },
-  { code: "PHY-202", name: "Physics Part II", department: "Science", icon: "⚡" },
-  { code: "CHEM-301", name: "Chemistry Part I", department: "Science", icon: "🧪" },
-  { code: "CHEM-302", name: "Chemistry Part II", department: "Science", icon: "🧪" },
-  { code: "BIO-401", name: "Biology Part I", department: "Science", icon: "🔬" },
-  { code: "CSE-110", name: "Computer & ICT", department: "Engineering", icon: "💻" },
-  { code: "ACC-101", name: "Accounting First Paper", department: "Business", icon: "📊" },
-  { code: "ACC-102", name: "Accounting Second Paper", department: "Business", icon: "📊" },
-  { code: "ENG-101", name: "English 1st Paper", department: "General", icon: "📚" },
-  { code: "BAN-101", name: "Bangla 1st Paper", department: "General", icon: "📖" },
-];
 
 export async function GET(request) {
   try {
-    await connectDB();
+    const apiScheduleUrl =
+      process.env.API_SCHEDULE_URL ||
+      "https://diplomaresultarea.com/api/routine/69d78dafea819cc7524eb9a1";
+    const apiSubjectsUrl =
+      process.env.API_SUBJECTS_URL ||
+      "https://diplomaresultarea.com/api/booklist";
 
-    // 1. Seed initial Master subjects if collection is empty
-    const subjectCount = await Subject.countDocuments();
-    if (subjectCount === 0) {
-      await Subject.insertMany(INITIAL_MASTER_SUBJECTS);
+    let scheduleData = null;
+    let booklistData = null;
+
+    // 1. Fetch API 1 (Routine Schedule with Date & Codes) and API 2 (Booklist with Code & Name) in parallel
+    try {
+      const [resSchedule, resBooklist] = await Promise.all([
+        fetch(apiScheduleUrl, { next: { revalidate: 120 } }),
+        fetch(apiSubjectsUrl, { next: { revalidate: 300 } }),
+      ]);
+
+      if (resSchedule.ok) scheduleData = await resSchedule.json();
+      if (resBooklist.ok) booklistData = await resBooklist.json();
+    } catch (apiErr) {
+      console.error("External API fetch error:", apiErr);
     }
 
-    // 2. Fetch all Master Subjects from DB
-    const allSubjects = await Subject.find({ isActive: { $ne: false } }).lean();
+    // 2. Build Book Map from Nested Booklist API
+    // Hierarchy: data[] -> departments[] -> regulation[] -> semesters[] -> subjects[]
+    const bookMap = new Map();
 
-    // 3. Fetch already uploaded subject codes (pending or verified in QuestionSubmission)
+    if (booklistData?.data && Array.isArray(booklistData.data)) {
+      booklistData.data.forEach((course) => {
+        const courseName = course.course_name || "Diploma";
+        course.departments?.forEach((dept) => {
+          const deptName = dept.name || "Engineering";
+          dept.regulation?.forEach((reg) => {
+            reg.semesters?.forEach((sem) => {
+              const semName = sem.semester_name || "";
+              sem.subjects?.forEach((sub) => {
+                const code = String(sub.subject_code || "").trim();
+                const name = sub.subject_name || "Subject";
+                if (code && !bookMap.has(code)) {
+                  bookMap.set(code, {
+                    name,
+                    department: deptName,
+                    course: courseName,
+                    semester: semName,
+                  });
+                }
+              });
+            });
+          });
+        });
+      });
+    }
+
+    // 3. Build Routine Items from Routine API (date, time, codes)
+    const masterMergedList = [];
+    const seenRoutineCodes = new Set();
+
+    if (scheduleData?.data?.routine && Array.isArray(scheduleData.data.routine)) {
+      scheduleData.data.routine.forEach((slot) => {
+        const slotDate = slot.date || "N/A";
+        const slotTime = slot.time || "";
+
+        slot.codes?.forEach((rawCode) => {
+          const code = String(rawCode || "").trim();
+          if (!code || seenRoutineCodes.has(code)) return;
+          seenRoutineCodes.add(code);
+
+          const bookInfo = bookMap.get(code) || {
+            name: `Subject (${code})`,
+            department: "Diploma Engineering",
+            semester: "",
+          };
+
+          masterMergedList.push({
+            code,
+            date: slotDate,
+            time: slotTime,
+            name: bookInfo.name,
+            department: bookInfo.department,
+            semester: bookInfo.semester,
+            icon: "📚",
+          });
+        });
+      });
+    }
+
+    // 4. Fetch Already Uploaded Questions from MongoDB
+    await connectDB();
     const uploadedSubmissions = await QuestionSubmission.find(
       { status: { $in: ["pending", "verified"] } },
-      { subjectCode: 1 }
+      { subjectCode: 1, subjectDate: 1 }
     ).lean();
 
     const uploadedCodesSet = new Set(
-      uploadedSubmissions.map((s) => s.subjectCode).filter(Boolean)
+      uploadedSubmissions.map((s) => String(s.subjectCode || "").trim())
     );
 
-    // 4. Merge & Filter: Exclude subjects that have already been uploaded!
-    const availableSubjects = allSubjects.filter(
-      (sub) => !uploadedCodesSet.has(sub.code)
+    // 5. Exclude already uploaded subjects!
+    const availableList = masterMergedList.filter(
+      (item) => !uploadedCodesSet.has(item.code)
     );
 
     return NextResponse.json({
       success: true,
-      totalMasterSubjects: allSubjects.length,
+      title: scheduleData?.data?.title || "Diploma Routine & Subjects",
+      totalRoutineSubjects: masterMergedList.length,
       alreadyUploadedCount: uploadedCodesSet.size,
-      availableCount: availableSubjects.length,
-      subjects: availableSubjects,
+      availableCount: availableList.length,
+      subjects: availableList,
     });
   } catch (error) {
-    console.error("Subjects fetch & merge error:", error);
+    console.error("Master Subjects API Error:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

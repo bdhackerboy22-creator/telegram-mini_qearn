@@ -5,7 +5,7 @@ import { uploadToCloudinary } from "@/lib/cloudinary";
 
 export async function POST(request) {
   try {
-    const { telegramId, subjectName, subjectCode, imageBase64 } = await request.json();
+    const { telegramId, subjectName, subjectCode, subjectDate, imageBase64 } = await request.json();
 
     if (!telegramId || !subjectName || !imageBase64) {
       return NextResponse.json(
@@ -19,11 +19,12 @@ export async function POST(request) {
 
     await connectDB();
 
-    // 2. Save only the lightweight Cloudinary URL to MongoDB (Uses ~0 MB storage!)
+    // 2. Save subject info, code, Cloudinary URL and exam Date from API 1 to MongoDB
     const submission = await QuestionSubmission.create({
       telegramId: String(telegramId),
       subjectName,
-      subjectCode: subjectCode || "N/A",
+      subjectCode: String(subjectCode || "N/A").trim().toUpperCase(),
+      subjectDate: subjectDate || "",
       imageUrl: uploadedImageUrl,
       status: "pending",
       rewardAmount: 50,
