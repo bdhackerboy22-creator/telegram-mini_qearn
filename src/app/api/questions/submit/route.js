@@ -36,18 +36,22 @@ export async function POST(request) {
       rewardAmount: 50,
     });
 
-    // 3. Auto-broadcast new question upload to @Qearn_Activities
-    broadcastActivity({
-      badge: "📝",
-      title: "New Question Uploaded",
-      description: `A user has submitted a question paper for review!`,
-      details: {
-        Subject: `${subjectName || "Subject"} (${subjectCode})`,
-        "Exam Date": subjectDate || "N/A",
-        "User ID": `<code>${telegramId}</code>`,
-        Status: "🟡 Pending Review",
-      },
-    }).catch(console.error);
+    // 3. ⚡ CRITICAL FIX: Await broadcast to @Qearn_Activities immediately
+    try {
+      await broadcastActivity({
+        badge: "📝",
+        title: "New Question Uploaded",
+        description: `A user has submitted a question paper for review!`,
+        details: {
+          Subject: `${subjectName || "Subject"} (${subjectCode})`,
+          "Exam Date": subjectDate || "N/A",
+          "User ID": `<code>${telegramId}</code>`,
+          Status: "🟡 Pending Review",
+        },
+      });
+    } catch (bcErr) {
+      console.error("Question upload broadcast error:", bcErr);
+    }
 
     return NextResponse.json({
       success: true,

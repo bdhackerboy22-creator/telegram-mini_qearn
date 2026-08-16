@@ -89,16 +89,20 @@ export async function POST(request) {
         transaction.trxId = trxId ? String(trxId).trim() : `TRX_${Date.now().toString().slice(-8)}`;
         await transaction.save();
 
-        // Broadcast to @Qearn_Payment on Completion
-        broadcastPaymentCompleted({
-          amount: transaction.amount,
-          bdtAmount: transaction.bdtAmount || (transaction.amount * 0.1).toFixed(2),
-          operator: transaction.operator || "Mobile",
-          simType: transaction.simType || "prepaid",
-          accountNumber: transaction.accountNumber,
-          trxId: transaction.trxId,
-          telegramId: transaction.telegramId,
-        }).catch(console.error);
+        // ⚡ CRITICAL FIX: Await broadcast to @Qearn_Payment immediately
+        try {
+          await broadcastPaymentCompleted({
+            amount: transaction.amount,
+            bdtAmount: transaction.bdtAmount || (transaction.amount * 0.1).toFixed(2),
+            operator: transaction.operator || "Mobile",
+            simType: transaction.simType || "prepaid",
+            accountNumber: transaction.accountNumber,
+            trxId: transaction.trxId,
+            telegramId: transaction.telegramId,
+          });
+        } catch (bcErr) {
+          console.error("Payment completed broadcast error:", bcErr);
+        }
 
         return NextResponse.json({
           success: true,
@@ -165,18 +169,22 @@ export async function POST(request) {
             status: "completed",
           });
 
-          // Broadcast activity to @Qearn_Activities
-          broadcastActivity({
-            badge: "🎉",
-            title: "Question Approved",
-            description: `A new diploma exam question was approved!`,
-            details: {
-              Subject: `${submission.subjectName} (${submission.subjectCode})`,
-              "Exam Date": submission.subjectDate || "N/A",
-              "User ID": `<code>${submission.telegramId}</code>`,
-              Reward: `+${reward} Coins`,
-            },
-          }).catch(console.error);
+          // ⚡ CRITICAL FIX: Await broadcast activity to @Qearn_Activities
+          try {
+            await broadcastActivity({
+              badge: "🎉",
+              title: "Question Approved",
+              description: `A new diploma exam question was approved!`,
+              details: {
+                Subject: `${submission.subjectName} (${submission.subjectCode})`,
+                "Exam Date": submission.subjectDate || "N/A",
+                "User ID": `<code>${submission.telegramId}</code>`,
+                Reward: `+${reward} Coins`,
+              },
+            });
+          } catch (bcErr) {
+            console.error("Question approve broadcast error:", bcErr);
+          }
         }
 
         return NextResponse.json({

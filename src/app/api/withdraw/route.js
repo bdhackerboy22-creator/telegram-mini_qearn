@@ -68,15 +68,19 @@ export async function POST(request) {
       accountNumber: String(accountNumber).trim(),
     });
 
-    // Auto-broadcast new payment request to @Qearn_Payment channel
-    broadcastPaymentRequested({
-      amount: numAmount,
-      bdtAmount,
-      operator: opName,
-      simType: simType || "prepaid",
-      accountNumber: String(accountNumber).trim(),
-      telegramId: String(telegramId),
-    }).catch(console.error);
+    // ⚡ CRITICAL FIX: Explicitly await channel broadcast before response completes in serverless
+    try {
+      await broadcastPaymentRequested({
+        amount: numAmount,
+        bdtAmount,
+        operator: opName,
+        simType: simType || "prepaid",
+        accountNumber: String(accountNumber).trim(),
+        telegramId: String(telegramId),
+      });
+    } catch (bcErr) {
+      console.error("Auto broadcast payment request error:", bcErr);
+    }
 
     return NextResponse.json({
       success: true,
