@@ -66,7 +66,7 @@ export default function Home() {
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 mt-0.5">
-                    Invited: <span className="text-sky-400 font-bold font-mono">{referralCount} Friends</span> • Earned: <span className="text-amber-300 font-bold font-mono">+{referralBonusEarned} Coins</span>
+                    Total: <span className="text-sky-400 font-bold font-mono">{userStats?.totalReferrals || 0}</span> • Success: <span className="text-emerald-400 font-bold font-mono">{userStats?.successReferrals || 0} (৳{((userStats?.successReferrals || 0) * 10)} TK)</span>
                   </p>
                 </div>
               </div>

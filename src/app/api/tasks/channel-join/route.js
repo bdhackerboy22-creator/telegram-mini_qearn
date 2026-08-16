@@ -4,6 +4,7 @@ import User from "@/models/User";
 import Transaction from "@/models/Transaction";
 
 const CHANNEL_REWARD_COINS = 50;
+const REFERRAL_BONUS_COINS = 100; // Reward given to referrer when referred user completes channel verification
 
 export async function POST(request) {
   try {
@@ -59,7 +60,6 @@ export async function POST(request) {
           }
         } else {
           console.warn("Telegram getChatMember API response:", tgData);
-          // If bot is not admin in channel, provide descriptive response
           if (tgData.description && tgData.description.includes("chat not found")) {
             console.error("Bot is not an Admin in channel:", channelUsername);
           }
@@ -68,7 +68,6 @@ export async function POST(request) {
         console.error("Telegram getChatMember error:", tgErr);
       }
     } else {
-      // In development fallback
       if (process.env.NODE_ENV !== "production") {
         isMember = true;
       }
@@ -83,13 +82,13 @@ export async function POST(request) {
       });
     }
 
-    // 3. Verified Successfully -> Credit +50 Coins & Save Record
+    // 3. User verified successfully -> Credit +50 Coins to user
     user.balance += CHANNEL_REWARD_COINS;
     user.totalEarned += CHANNEL_REWARD_COINS;
     user.hasJoinedChannel = true;
     await user.save();
 
-    // 4. Record Transaction History
+    // Record user task transaction
     const transaction = await Transaction.create({
       telegramId: String(telegramId),
       title: "Task: Joined Official Channel",
@@ -97,6 +96,30 @@ export async function POST(request) {
       amount: CHANNEL_REWARD_COINS,
       status: "completed",
     });
+
+    // 4. SUCCESS REFERRAL TRIGGER:
+    // If this user was referred by someone and referral reward has not been paid yet:
+    // Convert to SUCCESS REFERRAL and credit +100 Coins to Referrer!
+    if (user.referredBy && !user.isReferralRewardPaid) {
+      const referrerUser = await User.findOne({ telegramId: user.referredBy });
+      if (referrerUser) {
+        referrerUser.balance += REFERRAL_BONUS_COINS;
+        referrerUser.totalEarned += REFERRAL_BONUS_COINS;
+        await referrerUser.save();
+
+        user.isReferralRewardPaid = true;
+        await user.save();
+
+        // Create transaction for Referrer
+        await Transaction.create({
+          telegramId: user.referredBy,
+          title: `Successful Referral Reward: ${user.firstName || "Friend"} verified channel (@${user.username || user.telegramId})`,
+          type: "earn",
+          amount: REFERRAL_BONUS_COINS,
+          status: "completed",
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -11,7 +11,8 @@ export function UserProvider({ children }) {
     totalEarned: 0,
     totalWithdrawn: 0,
     adsWatchedCount: 0,
-    referralCount: 0,
+    totalReferrals: 0,
+    successReferrals: 0,
     referralBonusEarned: 0,
   });
   const [transactions, setTransactions] = useState([]);
@@ -32,7 +33,6 @@ export function UserProvider({ children }) {
     };
 
     if (typeof window !== "undefined") {
-      // 1. Read from Telegram WebApp
       if (window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp;
         tg.ready();
@@ -45,7 +45,6 @@ export function UserProvider({ children }) {
         startParam = tg.initDataUnsafe?.start_param || "";
       }
 
-      // 2. Fallback: Read start_param or ref from URL query params
       if (!startParam) {
         const urlParams = new URLSearchParams(window.location.search);
         startParam = urlParams.get("tgWebAppStartParam") || urlParams.get("startapp") || urlParams.get("ref") || "";
@@ -70,7 +69,8 @@ export function UserProvider({ children }) {
           totalEarned: data.user.totalEarned || 0,
           totalWithdrawn: data.user.totalWithdrawn || 0,
           adsWatchedCount: data.user.adsWatchedCount || 0,
-          referralCount: data.user.referralCount || 0,
+          totalReferrals: data.user.totalReferrals || 0,
+          successReferrals: data.user.successReferrals || 0,
           referralBonusEarned: data.user.referralBonusEarned || 0,
         });
         setTransactions(data.transactions || []);

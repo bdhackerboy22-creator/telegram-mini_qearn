@@ -5,7 +5,7 @@ import User from "@/models/User";
 import Transaction from "@/models/Transaction";
 
 const WELCOME_BONUS = 50;
-const REFERRAL_REWARD = 100; // 100 Coins per successful referral
+const REFERRAL_REWARD = 100; // 100 Coins per SUCCESSFUL referral
 
 export async function POST(request) {
   try {
@@ -52,6 +52,7 @@ export async function POST(request) {
       }
 
       // Create new user in Database with 50 Coins welcome bonus
+      // (Note: Referrer does NOT get 100 coins immediately. Referrer gets 100 coins ONLY after this user joins & verifies channel!)
       user = await User.create({
         telegramId,
         firstName: telegramUser.first_name || "",
@@ -60,6 +61,7 @@ export async function POST(request) {
         balance: WELCOME_BONUS,
         totalEarned: WELCOME_BONUS,
         referredBy: referrerId,
+        isReferralRewardPaid: false,
       });
 
       // Record welcome bonus transaction
@@ -70,25 +72,6 @@ export async function POST(request) {
         amount: WELCOME_BONUS,
         status: "completed",
       });
-
-      // If referred by another valid user -> Credit +100 Coins to Referrer!
-      if (referrerId) {
-        const referrerUser = await User.findOne({ telegramId: referrerId });
-        if (referrerUser) {
-          referrerUser.balance += REFERRAL_REWARD;
-          referrerUser.totalEarned += REFERRAL_REWARD;
-          await referrerUser.save();
-
-          // Create referrer bonus transaction
-          await Transaction.create({
-            telegramId: referrerId,
-            title: `Referral Bonus: ${telegramUser.first_name || "New Friend"} (@${telegramUser.username || telegramId})`,
-            type: "earn",
-            amount: REFERRAL_REWARD,
-            status: "completed",
-          });
-        }
-      }
     } else {
       // Update basic profile details if changed
       user.firstName = telegramUser.first_name || user.firstName;
@@ -97,8 +80,14 @@ export async function POST(request) {
       await user.save();
     }
 
-    // Count user's total successful referrals
-    const referralCount = await User.countDocuments({ referredBy: telegramId });
+    // 1. Total Referrals Count (All friends who opened via ref link)
+    const totalReferrals = await User.countDocuments({ referredBy: telegramId });
+
+    // 2. Success Referrals Count (Only friends who completed channel join verification)
+    const successReferrals = await User.countDocuments({
+      referredBy: telegramId,
+      hasJoinedChannel: true,
+    });
 
     // Fetch user transactions
     const transactions = await Transaction.find({ telegramId })
@@ -119,8 +108,9 @@ export async function POST(request) {
         adsWatchedCount: user.adsWatchedCount,
         hasJoinedChannel: Boolean(user.hasJoinedChannel),
         lastDailyRewardDate: user.lastDailyRewardDate,
-        referralCount,
-        referralBonusEarned: referralCount * REFERRAL_REWARD,
+        totalReferrals,
+        successReferrals,
+        referralBonusEarned: successReferrals * REFERRAL_REWARD,
       },
       transactions: transactions.map((t) => ({
         id: t._id,

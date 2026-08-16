@@ -9,7 +9,9 @@ export default function ReferPage() {
   const { user, refreshUser, isRefreshing } = useUser();
 
   const [stats, setStats] = useState({
-    referralCount: 0,
+    totalReferrals: 0,
+    successReferrals: 0,
+    pendingReferrals: 0,
     totalBonusEarned: 0,
     rewardPerReferral: 100,
   });
@@ -19,9 +21,7 @@ export default function ReferPage() {
 
   const telegramId = user?.id || "demo_user";
 
-  // Construct referral link for Telegram Mini App
-  // Format: https://t.me/share/url or direct bot link
-  const botUsername = "QEarn_Bot"; // Or generic share link
+  const botUsername = "QEarn_Bot";
   const miniAppShareLink = `https://t.me/share/url?url=${encodeURIComponent(
     `https://t.me/${botUsername}?startapp=ref_${telegramId}`
   )}&text=${encodeURIComponent(
@@ -110,7 +110,7 @@ export default function ReferPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                Earn <span className="text-amber-300 font-bold font-mono">100 Coins (৳10 TK)</span> for every active friend you invite!
+                Earn <span className="text-amber-300 font-bold font-mono">100 Coins (৳10 TK)</span> for each friend who joins & verifies official channel!
               </p>
             </div>
           </div>
@@ -133,29 +133,53 @@ export default function ReferPage() {
           </div>
         </div>
 
-        {/* Dynamic Referral Stats Grid */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 text-center shadow-lg">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-              Successful Referrals
+        {/* Dynamic 3-Stats Grid: Total Referrals, Success Referrals & Earned Coins */}
+        <div className="grid grid-cols-3 gap-2">
+          {/* 1. Total Referrals */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 text-center shadow-lg">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+              Total Refer
             </span>
-            <p className="text-2xl font-black text-sky-400 font-mono mt-1">
-              👥 {stats.referralCount || 0}
+            <p className="text-xl font-black text-sky-400 font-mono mt-0.5">
+              👥 {stats.totalReferrals || 0}
             </p>
-            <span className="text-[10px] text-slate-500 mt-0.5 block">Total Friends Joined</span>
+            <span className="text-[9px] text-slate-500 block">Invited</span>
           </div>
 
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 text-center shadow-lg">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-              Referral Bonus Earned
+          {/* 2. Success Referrals (Channel Verified) */}
+          <div className="bg-slate-900/90 border border-emerald-500/40 rounded-2xl p-3 text-center shadow-lg bg-emerald-950/20">
+            <span className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider block">
+              Success Refer
             </span>
-            <p className="text-2xl font-black text-amber-400 font-mono mt-1">
-              🪙 {(stats.totalBonusEarned || 0).toLocaleString()}
+            <p className="text-xl font-black text-emerald-400 font-mono mt-0.5">
+              ✓ {stats.successReferrals || 0}
             </p>
-            <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block font-mono">
-              = ৳{((stats.totalBonusEarned || 0) * 0.1).toFixed(2)} TK
+            <span className="text-[9px] text-emerald-400/80 block">Verified</span>
+          </div>
+
+          {/* 3. Bonus Coins Earned (Only from Success Referrals) */}
+          <div className="bg-slate-900/90 border border-amber-500/40 rounded-2xl p-3 text-center shadow-lg bg-amber-950/20">
+            <span className="text-[10px] text-amber-300 font-bold uppercase tracking-wider block">
+              Earned Coins
+            </span>
+            <p className="text-xl font-black text-amber-400 font-mono mt-0.5">
+              🪙 {stats.totalBonusEarned || 0}
+            </p>
+            <span className="text-[9px] text-amber-400/80 block font-mono">
+              ৳{((stats.totalBonusEarned || 0) * 0.1).toFixed(0)} TK
             </span>
           </div>
+        </div>
+
+        {/* Rule Explanation Banner */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1.5 text-xs text-slate-300">
+          <div className="flex items-center space-x-1.5 text-amber-400 font-bold">
+            <span>ℹ️</span>
+            <span>Success Referral Rules:</span>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            When a friend opens the mini app using your referral link and <span className="text-white font-semibold">joins & verifies the official channel task</span>, it is marked as a <span className="text-emerald-400 font-bold">Success Referral</span> and you instantly receive <span className="text-amber-400 font-bold">+100 Coins (৳10 TK)</span>!
+          </p>
         </div>
 
         {/* Copyable Link Box */}
@@ -176,14 +200,14 @@ export default function ReferPage() {
           </div>
         </div>
 
-        {/* Referred Friends List */}
+        {/* Referred Friends List with Live Status Badges */}
         <div className="space-y-2.5">
           <div className="flex justify-between items-center px-1">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
               Referred Friends ({referredUsers.length})
             </h3>
             <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-              +100 Coins Each
+              {stats.successReferrals} Success • {stats.pendingReferrals} Pending
             </span>
           </div>
 
@@ -194,31 +218,50 @@ export default function ReferPage() {
               <span className="text-3xl">👥</span>
               <p className="text-sm font-bold text-white">No referrals yet</p>
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Share your referral link with your classmates and Telegram friends to start earning +100 Coins per join!
+                Share your referral link with your classmates and Telegram friends to start earning +100 Coins per verified join!
               </p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
               {referredUsers.map((friend, idx) => (
                 <div
                   key={friend.id || idx}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex justify-between items-center text-xs shadow-md"
+                  className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 flex justify-between items-center text-xs shadow-md"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center font-bold text-white text-sm">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm ${
+                        friend.isSuccess
+                          ? "bg-gradient-to-tr from-emerald-500 to-teal-600 shadow-md shadow-emerald-500/20"
+                          : "bg-slate-800 text-slate-400 border border-slate-700"
+                      }`}
+                    >
                       {friend.name[0] || "U"}
                     </div>
                     <div>
-                      <h4 className="font-bold text-white">{friend.name}</h4>
+                      <h4 className="font-bold text-white text-sm">{friend.name}</h4>
                       <p className="text-[10px] text-slate-400 font-mono">{friend.username}</p>
+                      <span className="text-[10px] text-slate-500 mt-0.5 block">{friend.joinedAt}</span>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <span className="text-xs font-bold text-emerald-400 font-mono block">
-                      +100 Coins
+                  <div className="text-right space-y-1">
+                    <span
+                      className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        friend.isSuccess
+                          ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30 font-mono"
+                          : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                      }`}
+                    >
+                      {friend.isSuccess ? "✓ Success" : "⏳ Pending"}
                     </span>
-                    <span className="text-[10px] text-slate-500">{friend.joinedAt}</span>
+                    <span
+                      className={`text-xs font-bold font-mono block ${
+                        friend.isSuccess ? "text-emerald-400" : "text-slate-500"
+                      }`}
+                    >
+                      {friend.isSuccess ? "+100 Coins" : "0 Coins"}
+                    </span>
                   </div>
                 </div>
               ))}

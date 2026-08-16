@@ -38,7 +38,13 @@ const UserSchema = new mongoose.Schema(
     },
     hasJoinedChannel: {
       type: Boolean,
-      default: false, // Tracks if user has claimed channel join 50 coins reward
+      default: false, // Tracks if user has verified official channel join
+      index: true,
+    },
+    isReferralRewardPaid: {
+      type: Boolean,
+      default: false, // Tracks if the referrer has received the +100 reward for this user
+      index: true,
     },
     lastDailyRewardDate: {
       type: Date,
@@ -51,6 +57,7 @@ const UserSchema = new mongoose.Schema(
     referredBy: {
       type: String,
       default: null,
+      index: true,
     },
   },
   { timestamps: true }

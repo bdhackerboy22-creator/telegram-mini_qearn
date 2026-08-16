@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 
-const REFERRAL_REWARD_PER_USER = 100;
+const REFERRAL_REWARD_PER_SUCCESS = 100;
 
 export async function GET(request) {
   try {
@@ -24,27 +24,30 @@ export async function GET(request) {
     // 2. Fetch all users referred by this user
     const referredUsers = await User.find({ referredBy: String(telegramId) })
       .sort({ createdAt: -1 })
-      .select("telegramId firstName lastName username createdAt")
+      .select("telegramId firstName lastName username hasJoinedChannel isReferralRewardPaid createdAt")
       .lean();
 
-    const referralCount = referredUsers.length;
-    const totalBonusEarned = referralCount * REFERRAL_REWARD_PER_USER;
-
-    // Telegram Bot Username for deep-linking
-    const botUsername = "QEarnBot"; // Default bot username (or configured)
+    const totalReferrals = referredUsers.length;
+    const successReferrals = referredUsers.filter((u) => Boolean(u.hasJoinedChannel)).length;
+    const pendingReferrals = totalReferrals - successReferrals;
+    const totalBonusEarned = successReferrals * REFERRAL_REWARD_PER_SUCCESS;
 
     return NextResponse.json({
       success: true,
       stats: {
-        referralCount,
+        totalReferrals,
+        successReferrals,
+        pendingReferrals,
         totalBonusEarned,
-        rewardPerReferral: REFERRAL_REWARD_PER_USER,
+        rewardPerReferral: REFERRAL_REWARD_PER_SUCCESS,
         userTelegramId: telegramId,
       },
       referredUsers: referredUsers.map((u) => ({
         id: u.telegramId,
         name: `${u.firstName || ""} ${u.lastName || ""}`.trim() || "Telegram User",
         username: u.username ? `@${u.username}` : "Anonymous",
+        isSuccess: Boolean(u.hasJoinedChannel),
+        statusText: u.hasJoinedChannel ? "Success (Verified ✓)" : "Pending (Channel not joined)",
         joinedAt: new Date(u.createdAt).toLocaleDateString([], {
           month: "short",
           day: "numeric",
