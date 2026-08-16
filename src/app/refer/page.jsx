@@ -21,7 +21,7 @@ export default function ReferPage() {
 
   const telegramId = user?.id || "demo_user";
 
-  const botUsername = "QEarn_Bot";
+  const botUsername = "qaearn_bot";
   const miniAppShareLink = `https://t.me/share/url?url=${encodeURIComponent(
     `https://t.me/${botUsername}?startapp=ref_${telegramId}`
   )}&text=${encodeURIComponent(
