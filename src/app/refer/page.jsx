@@ -21,14 +21,15 @@ export default function ReferPage() {
 
   const telegramId = user?.id || "demo_user";
 
+  // Official Bot Username from Telegram (@qaearn_bot)
   const botUsername = "qaearn_bot";
-  const miniAppShareLink = `https://t.me/share/url?url=${encodeURIComponent(
-    `https://t.me/${botUsername}?startapp=ref_${telegramId}`
-  )}&text=${encodeURIComponent(
-    "🎁 Join this Telegram Mini App now to get 50 Free Coins & earn mobile recharge by uploading exam questions!"
-  )}`;
 
-  const directRefLink = `https://t.me/${botUsername}?startapp=ref_${telegramId}`;
+  // 1. Direct Bot Deep-Link: Opens Bot Chat with /start ref_USERID
+  const directBotRefLink = `https://t.me/${botUsername}?start=ref_${telegramId}`;
+
+  // 2. Telegram Share Intent URL: Directly shares bot referral link with pre-written inviting message
+  const shareMessage = `🎁 Join QEarn now to get 50 Free Coins & earn Mobile Recharge by uploading Diploma exam questions!\n\n👇 Click to start:\n${directBotRefLink}`;
+  const shareOnTelegramUrl = `https://t.me/share/url?url=${encodeURIComponent(directBotRefLink)}&text=${encodeURIComponent("🎁 Get 50 Free Coins & Earn Mobile Recharge on QEarn!")}`;
 
   const fetchReferralStats = async () => {
     if (!telegramId) return;
@@ -52,16 +53,16 @@ export default function ReferPage() {
   }, [telegramId]);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(directRefLink);
+    navigator.clipboard.writeText(directBotRefLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
   };
 
   const handleShareOnTelegram = () => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      window.Telegram.WebApp.openTelegramLink(miniAppShareLink);
+      window.Telegram.WebApp.openTelegramLink(shareOnTelegramUrl);
     } else {
-      window.open(miniAppShareLink, "_blank");
+      window.open(shareOnTelegramUrl, "_blank");
     }
   };
 
@@ -110,7 +111,7 @@ export default function ReferPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                Earn <span className="text-amber-300 font-bold font-mono">100 Coins (৳10 TK)</span> for each friend who joins & verifies official channel!
+                Earn <span className="text-amber-300 font-bold font-mono">100 Coins (৳10 TK)</span> for each friend who starts the bot & verifies official channel!
               </p>
             </div>
           </div>
@@ -178,18 +179,18 @@ export default function ReferPage() {
             <span>Success Referral Rules:</span>
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            When a friend opens the mini app using your referral link and <span className="text-white font-semibold">joins & verifies the official channel task</span>, it is marked as a <span className="text-emerald-400 font-bold">Success Referral</span> and you instantly receive <span className="text-amber-400 font-bold">+100 Coins (৳10 TK)</span>!
+            When a friend starts the bot (<span className="text-sky-300 font-mono">/start ref</span>) using your link and <span className="text-white font-semibold">joins & verifies the official channel task</span>, it is marked as a <span className="text-emerald-400 font-bold">Success Referral</span> and you instantly receive <span className="text-amber-400 font-bold">+100 Coins (৳10 TK)</span>!
           </p>
         </div>
 
-        {/* Copyable Link Box */}
+        {/* Copyable Bot Referral Link Box */}
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-            Your Unique Referral Link:
+            Your Bot Referral Link:
           </span>
           <div className="flex items-center justify-between bg-slate-950 border border-slate-800/80 rounded-xl p-2.5 space-x-2">
             <span className="text-xs text-sky-300 font-mono truncate select-all">
-              {directRefLink}
+              {directBotRefLink}
             </span>
             <button
               onClick={handleCopyLink}
@@ -218,7 +219,7 @@ export default function ReferPage() {
               <span className="text-3xl">👥</span>
               <p className="text-sm font-bold text-white">No referrals yet</p>
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Share your referral link with your classmates and Telegram friends to start earning +100 Coins per verified join!
+                Share your bot referral link with your classmates and Telegram friends to start earning +100 Coins per verified join!
               </p>
             </div>
           ) : (
