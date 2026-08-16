@@ -3,9 +3,10 @@ import { verifyTelegramWebAppData } from "@/lib/telegram";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import Transaction from "@/models/Transaction";
+import { broadcastActivity } from "@/lib/telegramBroadcast";
 
 const WELCOME_BONUS = 50;
-const REFERRAL_REWARD = 100; // 100 Coins per SUCCESSFUL referral
+const REFERRAL_REWARD = 100;
 
 export async function POST(request) {
   try {
@@ -42,7 +43,6 @@ export async function POST(request) {
     let user = await User.findOne({ telegramId });
 
     if (!user) {
-      // Determine referrer from startParam (e.g. ref_123456 or 123456)
       let referrerId = null;
       if (startParam) {
         const cleanRef = String(startParam).replace(/^ref_/, "").trim();
@@ -51,8 +51,6 @@ export async function POST(request) {
         }
       }
 
-      // Create new user in Database with 50 Coins welcome bonus
-      // (Note: Referrer does NOT get 100 coins immediately. Referrer gets 100 coins ONLY after this user joins & verifies channel!)
       user = await User.create({
         telegramId,
         firstName: telegramUser.first_name || "",
@@ -72,21 +70,34 @@ export async function POST(request) {
         amount: WELCOME_BONUS,
         status: "completed",
       });
+
+      // Broadcast new member activity to @Qearn_Activities
+      broadcastActivity({
+        badge: "👋",
+        title: "New User Joined",
+        description: `<b>${telegramUser.first_name || "New Earner"}</b> joined QEarn Mini App!`,
+        details: {
+          "User ID": `<code>${telegramId}</code>`,
+          Bonus: "+50 Coins Welcome Gift",
+          "Referred By": referrerId ? `<code>${referrerId}</code>` : "Direct Join",
+        },
+      }).catch(console.error);
     } else {
-      // Update basic profile details if changed
       user.firstName = telegramUser.first_name || user.firstName;
       user.lastName = telegramUser.last_name || user.lastName;
       user.username = telegramUser.username || user.username;
       await user.save();
     }
 
-    // 1. Total Referrals Count (All friends who opened via ref link)
+    // 1. Total Referrals Count
     const totalReferrals = await User.countDocuments({ referredBy: telegramId });
 
-    // 2. Success Referrals Count (Only friends who completed channel join verification)
+    // 2. Success Referrals Count (Must have joined all 3 channels)
     const successReferrals = await User.countDocuments({
       referredBy: telegramId,
-      hasJoinedChannel: true,
+      hasJoinedMainChannel: true,
+      hasJoinedPaymentChannel: true,
+      hasJoinedActivitiesChannel: true,
     });
 
     // Fetch user transactions
@@ -106,7 +117,13 @@ export async function POST(request) {
         totalEarned: user.totalEarned,
         totalWithdrawn: user.totalWithdrawn,
         adsWatchedCount: user.adsWatchedCount,
-        hasJoinedChannel: Boolean(user.hasJoinedChannel),
+        hasJoinedMainChannel: Boolean(user.hasJoinedMainChannel),
+        hasJoinedPaymentChannel: Boolean(user.hasJoinedPaymentChannel),
+        hasJoinedActivitiesChannel: Boolean(user.hasJoinedActivitiesChannel),
+        hasJoinedChannel:
+          Boolean(user.hasJoinedMainChannel) &&
+          Boolean(user.hasJoinedPaymentChannel) &&
+          Boolean(user.hasJoinedActivitiesChannel),
         lastDailyRewardDate: user.lastDailyRewardDate,
         totalReferrals,
         successReferrals,

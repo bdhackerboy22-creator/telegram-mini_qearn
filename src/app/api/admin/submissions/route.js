@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import QuestionSubmission from "@/models/QuestionSubmission";
 import User from "@/models/User";
 import Transaction from "@/models/Transaction";
+import { broadcastPaymentCompleted, broadcastActivity } from "@/lib/telegramBroadcast";
 
 // Simple secure admin passcode
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "admin123";
@@ -85,8 +86,19 @@ export async function POST(request) {
 
       if (action === "pay") {
         transaction.status = "completed";
-        transaction.trxId = trxId ? String(trxId).trim() : `TRX_${Date.now()}`;
+        transaction.trxId = trxId ? String(trxId).trim() : `TRX_${Date.now().toString().slice(-8)}`;
         await transaction.save();
+
+        // Broadcast to @Qearn_Payment on Completion
+        broadcastPaymentCompleted({
+          amount: transaction.amount,
+          bdtAmount: transaction.bdtAmount || (transaction.amount * 0.1).toFixed(2),
+          operator: transaction.operator || "Mobile",
+          simType: transaction.simType || "prepaid",
+          accountNumber: transaction.accountNumber,
+          trxId: transaction.trxId,
+          telegramId: transaction.telegramId,
+        }).catch(console.error);
 
         return NextResponse.json({
           success: true,
@@ -152,6 +164,19 @@ export async function POST(request) {
             amount: reward,
             status: "completed",
           });
+
+          // Broadcast activity to @Qearn_Activities
+          broadcastActivity({
+            badge: "🎉",
+            title: "Question Approved",
+            description: `A new diploma exam question was approved!`,
+            details: {
+              Subject: `${submission.subjectName} (${submission.subjectCode})`,
+              "Exam Date": submission.subjectDate || "N/A",
+              "User ID": `<code>${submission.telegramId}</code>`,
+              Reward: `+${reward} Coins`,
+            },
+          }).catch(console.error);
         }
 
         return NextResponse.json({

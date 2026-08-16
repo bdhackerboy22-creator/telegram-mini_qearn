@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import Transaction from "@/models/Transaction";
+import { broadcastPaymentRequested } from "@/lib/telegramBroadcast";
 
 const MIN_WITHDRAW_COINS = 200; // Minimum 200 Coins
 const COIN_TO_BDT_RATE = 0.1; // 1 Coin = 0.1 TK (e.g. 200 Coins = 20 BDT)
@@ -66,6 +67,16 @@ export async function POST(request) {
       simType: simType || "prepaid",
       accountNumber: String(accountNumber).trim(),
     });
+
+    // Auto-broadcast new payment request to @Qearn_Payment channel
+    broadcastPaymentRequested({
+      amount: numAmount,
+      bdtAmount,
+      operator: opName,
+      simType: simType || "prepaid",
+      accountNumber: String(accountNumber).trim(),
+      telegramId: String(telegramId),
+    }).catch(console.error);
 
     return NextResponse.json({
       success: true,

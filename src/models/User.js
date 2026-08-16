@@ -36,14 +36,30 @@ const UserSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // 3 Required Channels
+    hasJoinedMainChannel: {
+      type: Boolean,
+      default: false, // @qearnofficial
+      index: true,
+    },
+    hasJoinedPaymentChannel: {
+      type: Boolean,
+      default: false, // @Qearn_Payment
+      index: true,
+    },
+    hasJoinedActivitiesChannel: {
+      type: Boolean,
+      default: false, // @Qearn_Activities
+      index: true,
+    },
+    // Backward compatibility helper
     hasJoinedChannel: {
       type: Boolean,
-      default: false, // Tracks if user has verified official channel join
-      index: true,
+      default: false,
     },
     isReferralRewardPaid: {
       type: Boolean,
-      default: false, // Tracks if the referrer has received the +100 reward for this user
+      default: false, // Tracks if referrer has received +100 reward (when all 3 channels are verified)
       index: true,
     },
     lastDailyRewardDate: {
