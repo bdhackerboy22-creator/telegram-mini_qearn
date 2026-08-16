@@ -36,6 +36,10 @@ const UserSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    hasJoinedChannel: {
+      type: Boolean,
+      default: false, // Tracks if user has claimed channel join 50 coins reward
+    },
     lastDailyRewardDate: {
       type: Date,
       default: null,

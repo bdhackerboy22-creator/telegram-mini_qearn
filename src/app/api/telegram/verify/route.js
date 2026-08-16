@@ -84,6 +84,7 @@ export async function POST(request) {
         totalEarned: user.totalEarned,
         totalWithdrawn: user.totalWithdrawn,
         adsWatchedCount: user.adsWatchedCount,
+        hasJoinedChannel: Boolean(user.hasJoinedChannel),
         lastDailyRewardDate: user.lastDailyRewardDate,
       },
       transactions: transactions.map((t) => ({
