@@ -5,10 +5,11 @@ import User from "@/models/User";
 import Transaction from "@/models/Transaction";
 
 const WELCOME_BONUS = 50;
+const REFERRAL_REWARD = 100; // 100 Coins per successful referral
 
 export async function POST(request) {
   try {
-    const { initData } = await request.json();
+    const { initData, startParam } = await request.json();
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
     let telegramUser = null;
@@ -41,6 +42,15 @@ export async function POST(request) {
     let user = await User.findOne({ telegramId });
 
     if (!user) {
+      // Determine referrer from startParam (e.g. ref_123456 or 123456)
+      let referrerId = null;
+      if (startParam) {
+        const cleanRef = String(startParam).replace(/^ref_/, "").trim();
+        if (cleanRef && cleanRef !== telegramId) {
+          referrerId = cleanRef;
+        }
+      }
+
       // Create new user in Database with 50 Coins welcome bonus
       user = await User.create({
         telegramId,
@@ -49,6 +59,7 @@ export async function POST(request) {
         username: telegramUser.username || "",
         balance: WELCOME_BONUS,
         totalEarned: WELCOME_BONUS,
+        referredBy: referrerId,
       });
 
       // Record welcome bonus transaction
@@ -59,6 +70,25 @@ export async function POST(request) {
         amount: WELCOME_BONUS,
         status: "completed",
       });
+
+      // If referred by another valid user -> Credit +100 Coins to Referrer!
+      if (referrerId) {
+        const referrerUser = await User.findOne({ telegramId: referrerId });
+        if (referrerUser) {
+          referrerUser.balance += REFERRAL_REWARD;
+          referrerUser.totalEarned += REFERRAL_REWARD;
+          await referrerUser.save();
+
+          // Create referrer bonus transaction
+          await Transaction.create({
+            telegramId: referrerId,
+            title: `Referral Bonus: ${telegramUser.first_name || "New Friend"} (@${telegramUser.username || telegramId})`,
+            type: "earn",
+            amount: REFERRAL_REWARD,
+            status: "completed",
+          });
+        }
+      }
     } else {
       // Update basic profile details if changed
       user.firstName = telegramUser.first_name || user.firstName;
@@ -66,6 +96,9 @@ export async function POST(request) {
       user.username = telegramUser.username || user.username;
       await user.save();
     }
+
+    // Count user's total successful referrals
+    const referralCount = await User.countDocuments({ referredBy: telegramId });
 
     // Fetch user transactions
     const transactions = await Transaction.find({ telegramId })
@@ -86,6 +119,8 @@ export async function POST(request) {
         adsWatchedCount: user.adsWatchedCount,
         hasJoinedChannel: Boolean(user.hasJoinedChannel),
         lastDailyRewardDate: user.lastDailyRewardDate,
+        referralCount,
+        referralBonusEarned: referralCount * REFERRAL_REWARD,
       },
       transactions: transactions.map((t) => ({
         id: t._id,

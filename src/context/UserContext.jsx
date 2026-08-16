@@ -11,6 +11,8 @@ export function UserProvider({ children }) {
     totalEarned: 0,
     totalWithdrawn: 0,
     adsWatchedCount: 0,
+    referralCount: 0,
+    referralBonusEarned: 0,
   });
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +23,7 @@ export function UserProvider({ children }) {
     if (!isInitial) setIsRefreshing(true);
 
     let initData = "";
+    let startParam = "";
     let localUser = {
       id: "demo_user",
       first_name: "Telegram",
@@ -28,15 +31,25 @@ export function UserProvider({ children }) {
       username: "tele_user",
     };
 
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
+    if (typeof window !== "undefined") {
+      // 1. Read from Telegram WebApp
+      if (window.Telegram?.WebApp) {
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
 
-      if (tg.initDataUnsafe?.user) {
-        localUser = tg.initDataUnsafe.user;
+        if (tg.initDataUnsafe?.user) {
+          localUser = tg.initDataUnsafe.user;
+        }
+        initData = tg.initData || "";
+        startParam = tg.initDataUnsafe?.start_param || "";
       }
-      initData = tg.initData || "";
+
+      // 2. Fallback: Read start_param or ref from URL query params
+      if (!startParam) {
+        const urlParams = new URLSearchParams(window.location.search);
+        startParam = urlParams.get("tgWebAppStartParam") || urlParams.get("startapp") || urlParams.get("ref") || "";
+      }
     }
 
     try {
@@ -45,6 +58,7 @@ export function UserProvider({ children }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           initData: initData || `user=${encodeURIComponent(JSON.stringify(localUser))}`,
+          startParam,
         }),
       });
 
@@ -56,6 +70,8 @@ export function UserProvider({ children }) {
           totalEarned: data.user.totalEarned || 0,
           totalWithdrawn: data.user.totalWithdrawn || 0,
           adsWatchedCount: data.user.adsWatchedCount || 0,
+          referralCount: data.user.referralCount || 0,
+          referralBonusEarned: data.user.referralBonusEarned || 0,
         });
         setTransactions(data.transactions || []);
       } else {
@@ -77,7 +93,6 @@ export function UserProvider({ children }) {
   useEffect(() => {
     fetchUserData(true);
 
-    // Auto-refresh when user switches back to the app window/tab
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         fetchUserData(false);
@@ -123,7 +138,7 @@ export function UserProvider({ children }) {
               Connecting Telegram Session...
             </h2>
             <p className="text-xs text-slate-400 font-mono">
-              Fetching live balance & history
+              Loading account, referral & coin balance
             </p>
           </div>
         </div>
