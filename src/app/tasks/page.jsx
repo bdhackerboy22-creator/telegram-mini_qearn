@@ -8,6 +8,8 @@ import { useUser } from "@/context/UserContext";
 export default function TasksPage() {
   const { user, updateBalance } = useUser();
 
+  // Track which channels user has clicked "Join" for
+  const [clickedJoin, setClickedJoin] = useState({});
   const [verifyingKey, setVerifyingKey] = useState(null);
   const [statusMsg, setStatusMsg] = useState("");
   const [statusType, setStatusType] = useState(""); // 'success' | 'error'
@@ -48,18 +50,26 @@ export default function TasksPage() {
     },
   ];
 
-  const handleOpenChannel = (link) => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      window.Telegram.WebApp.openTelegramLink(link);
-    } else {
-      window.open(link, "_blank");
+  const handleButtonClick = async (ch) => {
+    const isCompleted = Boolean(user?.[ch.field]);
+    if (isCompleted) return;
+
+    const hasClicked = Boolean(clickedJoin[ch.id]);
+
+    // Step 1: If user hasn't clicked "Join" yet -> Open Telegram Channel & change button to "Claim"
+    if (!hasClicked) {
+      if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+        window.Telegram.WebApp.openTelegramLink(ch.link);
+      } else {
+        window.open(ch.link, "_blank");
+      }
+
+      setClickedJoin((prev) => ({ ...prev, [ch.id]: true }));
+      return;
     }
-  };
 
-  const handleVerifyChannel = async (channelId, fieldKey) => {
-    if (user?.[fieldKey]) return;
-
-    setVerifyingKey(channelId);
+    // Step 2: If user already clicked "Join" -> Verify membership & Claim 50 coins
+    setVerifyingKey(ch.id);
     setStatusMsg("");
     setStatusType("");
 
@@ -69,7 +79,7 @@ export default function TasksPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           telegramId: user?.id || "demo_user",
-          channelType: channelId,
+          channelType: ch.id,
         }),
       });
 
@@ -80,14 +90,15 @@ export default function TasksPage() {
         setStatusMsg(data.message || "🎉 Verified! +50 Coins credited to your balance!");
         updateBalance(data.balance, data.transaction, {
           totalEarned: data.totalEarned,
-          [fieldKey]: true,
+          [ch.field]: true,
         });
         if (user) {
-          user[fieldKey] = true;
+          user[ch.field] = true;
         }
       } else {
         setStatusType("error");
-        setStatusMsg(data.error || "Verification failed! Please make sure you joined the channel.");
+        setStatusMsg(data.error || "Verification failed! Please join the channel first.");
+        // If verification failed because user didn't actually join, keep or reopen channel link
       }
     } catch (err) {
       setStatusType("error");
@@ -135,99 +146,98 @@ export default function TasksPage() {
 
         {/* Task List */}
         <div className="space-y-3">
-          {/* TASK GROUP 1: 3 Telegram Channel Joining Tasks */}
-          {channels.map((ch, idx) => {
+          {/* TASK GROUP 1: 3 Telegram Channel Joining Tasks (Single Right-Side Button) */}
+          {channels.map((ch) => {
             const isCompleted = Boolean(user?.[ch.field]);
             const isChecking = verifyingKey === ch.id;
+            const hasClicked = Boolean(clickedJoin[ch.id]);
 
             return (
               <div
                 key={ch.id}
-                className={`bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900 border ${ch.borderColor} rounded-3xl p-4.5 p-4 shadow-xl space-y-3`}
+                className={`bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900 border ${ch.borderColor} rounded-3xl p-4 shadow-xl flex items-center justify-between gap-3`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div
-                      className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${ch.color} flex items-center justify-center text-xl shadow-md`}
-                    >
-                      {ch.icon}
+                {/* Left Side: Icon & Details */}
+                <div className="flex items-center space-x-3 min-w-0 flex-1">
+                  <div
+                    className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${ch.color} flex items-center justify-center text-xl shadow-md shrink-0`}
+                  >
+                    {ch.icon}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-sm font-bold text-white truncate">{ch.title}</h3>
+                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold shrink-0">
+                        +50
+                      </span>
                     </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h3 className="text-sm font-bold text-white">{ch.title}</h3>
-                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold">
-                          +50 Coins
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{ch.description}</p>
-                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">{ch.username}</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <button
-                    onClick={() => handleOpenChannel(ch.link)}
-                    className="py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-98 text-white font-bold text-xs rounded-xl border border-slate-700 transition-all flex items-center justify-center space-x-1.5 shadow-md"
-                  >
-                    <span>🔗</span>
-                    <span>1. Join ({ch.username})</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleVerifyChannel(ch.id, ch.field)}
-                    disabled={isCompleted || isChecking}
-                    className={`py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center space-x-1.5 shadow-lg ${
-                      isCompleted
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-not-allowed"
-                        : isChecking
-                        ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-                        : `bg-gradient-to-r ${ch.color} hover:brightness-110 text-white active:scale-98`
-                    }`}
-                  >
-                    <span>{isCompleted ? "✓" : "⚡"}</span>
-                    <span>
-                      {isCompleted
-                        ? "Completed ✓"
-                        : isChecking
-                        ? "Checking..."
-                        : "2. Check & Claim"}
-                    </span>
-                  </button>
-                </div>
+                {/* Right Side: Single Dynamic Action Button (Join -> Claim -> Completed) */}
+                <button
+                  onClick={() => handleButtonClick(ch)}
+                  disabled={isCompleted || isChecking}
+                  className={`px-4 py-2.5 rounded-2xl font-bold text-xs transition-all flex items-center justify-center space-x-1.5 shrink-0 shadow-lg min-w-[90px] ${
+                    isCompleted
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-not-allowed"
+                      : isChecking
+                      ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+                      : hasClicked
+                      ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white shadow-amber-500/20 active:scale-95 animate-pulse"
+                      : `bg-gradient-to-r ${ch.color} hover:brightness-110 text-white active:scale-95`
+                  }`}
+                >
+                  {isCompleted ? (
+                    <>
+                      <span>✓</span>
+                      <span>Done</span>
+                    </>
+                  ) : isChecking ? (
+                    <span>Checking...</span>
+                  ) : hasClicked ? (
+                    <>
+                      <span>⚡</span>
+                      <span>Claim</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🔗</span>
+                      <span>Join</span>
+                    </>
+                  )}
+                </button>
               </div>
             );
           })}
 
           {/* TASK GROUP 2: Question Upload Task */}
-          <div className="bg-gradient-to-r from-slate-900 via-sky-950/40 to-slate-900 border border-sky-500/40 rounded-3xl p-4.5 p-4 shadow-2xl space-y-3">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-xl shadow-lg shadow-sky-500/20">
-                  📝
+          <div className="bg-gradient-to-r from-slate-900 via-sky-950/40 to-slate-900 border border-sky-500/40 rounded-3xl p-4 shadow-xl flex items-center justify-between gap-3">
+            <div className="flex items-center space-x-3 min-w-0 flex-1">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-xl shadow-lg shadow-sky-500/20 shrink-0">
+                📝
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-sm font-bold text-white truncate">Question Upload</h3>
+                  <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold shrink-0">
+                    +50
+                  </span>
                 </div>
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-sm font-bold text-white">Question Upload</h3>
-                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold">
-                      +50 Coins
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Watch 15s ad, pick available subject & upload photo
-                  </p>
-                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                  Watch 15s ad & upload photo
+                </p>
               </div>
             </div>
 
-            <div className="pt-1">
-              <Link
-                href="/tasks/upload-question"
-                className="w-full py-3 bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 hover:from-sky-400 hover:to-purple-500 text-white font-bold text-xs rounded-xl shadow-xl shadow-sky-500/20 active:scale-98 transition-all flex items-center justify-center space-x-2 text-center"
-              >
-                <span>⚡</span>
-                <span>Start Upload Task</span>
-              </Link>
-            </div>
+            <Link
+              href="/tasks/upload-question"
+              className="px-4 py-2.5 bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 hover:from-sky-400 hover:to-purple-500 text-white font-bold text-xs rounded-2xl shadow-lg shadow-sky-500/20 active:scale-95 transition-all flex items-center justify-center space-x-1 shrink-0 min-w-[90px]"
+            >
+              <span>⚡</span>
+              <span>Start</span>
+            </Link>
           </div>
         </div>
       </main>
