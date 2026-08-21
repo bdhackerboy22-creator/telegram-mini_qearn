@@ -17,14 +17,14 @@ const CHANNELS = {
   },
   payment: {
     key: "hasJoinedPaymentChannel",
-    username: process.env.TELEGRAM_CHANNEL_PAYMENT || "@Qearn_Payment",
-    link: process.env.TELEGRAM_CHANNEL_PAYMENT_LINK || "https://t.me/Qearn_Payment",
+    username: process.env.TELEGRAM_CHANNEL_PAYMENT || "@qearnofficialpay",
+    link: process.env.TELEGRAM_CHANNEL_PAYMENT_LINK || "https://t.me/qearnofficialpay",
     title: "Qearn Payment Channel",
   },
   activities: {
     key: "hasJoinedActivitiesChannel",
-    username: process.env.TELEGRAM_CHANNEL_ACTIVITIES || "@Qearn_Activities",
-    link: process.env.TELEGRAM_CHANNEL_ACTIVITIES_LINK || "https://t.me/Qearn_Activities",
+    username: process.env.TELEGRAM_CHANNEL_ACTIVITIES || "@qearnofficialactivities",
+    link: process.env.TELEGRAM_CHANNEL_ACTIVITIES_LINK || "https://t.me/qearnofficialactivities",
     title: "Qearn Activities Channel",
   },
 };
@@ -136,16 +136,17 @@ export async function POST(request) {
       },
     }).catch(console.error);
 
-    // 4. SUCCESS REFERRAL TRIGGER (All 3 Channels Requirement):
-    // Check if user has now joined ALL 3 REQUIRED CHANNELS:
-    const hasJoinedAll3 =
+    // 4. SUCCESS REFERRAL TRIGGER (All 4 Tasks Requirement):
+    // Check if user has now completed ALL 4 REQUIRED TASKS (3 channels + 1 approved question):
+    const hasCompletedAll4 =
       Boolean(user.hasJoinedMainChannel) &&
       Boolean(user.hasJoinedPaymentChannel) &&
-      Boolean(user.hasJoinedActivitiesChannel);
+      Boolean(user.hasJoinedActivitiesChannel) &&
+      Boolean(user.hasApprovedQuestionUpload);
 
     let referralUnlocked = false;
 
-    if (hasJoinedAll3 && user.referredBy && !user.isReferralRewardPaid) {
+    if (hasCompletedAll4 && user.referredBy && !user.isReferralRewardPaid) {
       const referrerUser = await User.findOne({ telegramId: user.referredBy });
       if (referrerUser) {
         referrerUser.balance += REFERRAL_BONUS_COINS;
@@ -158,7 +159,7 @@ export async function POST(request) {
         // Create transaction for Referrer
         await Transaction.create({
           telegramId: user.referredBy,
-          title: `Successful Referral Reward: ${user.firstName || "Friend"} verified all 3 channels (@${user.username || user.telegramId})`,
+          title: `Successful Referral Reward: ${user.firstName || "Friend"} completed all 4 tasks (@${user.username || user.telegramId})`,
           type: "earn",
           amount: REFERRAL_BONUS_COINS,
           status: "completed",
@@ -170,7 +171,7 @@ export async function POST(request) {
         broadcastActivity({
           badge: "🎉",
           title: "Referral Success Unlocked",
-          description: `User <b>${user.firstName || "Friend"}</b> completed all 3 channel tasks! Referrer rewarded!`,
+          description: `User <b>${user.firstName || "Friend"}</b> completed all 4 tasks (3 channels + approved question)! Referrer rewarded!`,
           details: {
             "Referrer ID": `<code>${user.referredBy}</code>`,
             "Bonus Awarded": `+${REFERRAL_BONUS_COINS} Coins (৳10 TK)`,
@@ -188,6 +189,7 @@ export async function POST(request) {
       hasJoinedMainChannel: Boolean(user.hasJoinedMainChannel),
       hasJoinedPaymentChannel: Boolean(user.hasJoinedPaymentChannel),
       hasJoinedActivitiesChannel: Boolean(user.hasJoinedActivitiesChannel),
+      hasApprovedQuestionUpload: Boolean(user.hasApprovedQuestionUpload),
       reward: CHANNEL_REWARD_COINS,
       referralUnlocked,
       message: `🎉 Verified! +${CHANNEL_REWARD_COINS} Coins credited to your balance!`,

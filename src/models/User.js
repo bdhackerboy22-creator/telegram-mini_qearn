@@ -36,20 +36,29 @@ const UserSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    // 3 Required Channels
+    // The 4 Required Referral Tasks:
+    // Task 1: Main Official Channel (@qearnofficial)
     hasJoinedMainChannel: {
       type: Boolean,
-      default: false, // @qearnofficial
+      default: false,
       index: true,
     },
+    // Task 2: Payment Proof Channel (@qearnofficialpay)
     hasJoinedPaymentChannel: {
       type: Boolean,
-      default: false, // @Qearn_Payment
+      default: false,
       index: true,
     },
+    // Task 3: Community Activities Channel (@qearnofficialactivities)
     hasJoinedActivitiesChannel: {
       type: Boolean,
-      default: false, // @Qearn_Activities
+      default: false,
+      index: true,
+    },
+    // Task 4: Approved Question Upload (Admin Verified)
+    hasApprovedQuestionUpload: {
+      type: Boolean,
+      default: false,
       index: true,
     },
     // Backward compatibility helper
@@ -59,7 +68,7 @@ const UserSchema = new mongoose.Schema(
     },
     isReferralRewardPaid: {
       type: Boolean,
-      default: false, // Tracks if referrer has received +100 reward (when all 3 channels are verified)
+      default: false, // Tracks if referrer has received +100 reward (when ALL 4 tasks are complete)
       index: true,
     },
     lastDailyRewardDate: {

@@ -92,12 +92,13 @@ export async function POST(request) {
     // 1. Total Referrals Count
     const totalReferrals = await User.countDocuments({ referredBy: telegramId });
 
-    // 2. Success Referrals Count (Must have joined all 3 channels)
+    // 2. Success Referrals Count (Must have completed ALL 4 tasks: 3 channels + 1 approved question)
     const successReferrals = await User.countDocuments({
       referredBy: telegramId,
       hasJoinedMainChannel: true,
       hasJoinedPaymentChannel: true,
       hasJoinedActivitiesChannel: true,
+      hasApprovedQuestionUpload: true,
     });
 
     // Fetch user transactions
@@ -120,6 +121,7 @@ export async function POST(request) {
         hasJoinedMainChannel: Boolean(user.hasJoinedMainChannel),
         hasJoinedPaymentChannel: Boolean(user.hasJoinedPaymentChannel),
         hasJoinedActivitiesChannel: Boolean(user.hasJoinedActivitiesChannel),
+        hasApprovedQuestionUpload: Boolean(user.hasApprovedQuestionUpload),
         hasJoinedChannel:
           Boolean(user.hasJoinedMainChannel) &&
           Boolean(user.hasJoinedPaymentChannel) &&

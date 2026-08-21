@@ -19,17 +19,19 @@ export default function ReferPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
+  // Selected user to view 4-task detail modal
+  const [selectedUserDetail, setSelectedUserDetail] = useState(null);
+
   const telegramId = user?.id || "demo_user";
 
-  // Official Bot Username from Telegram (@qaearn_bot)
   const botUsername = "qaearn_bot";
-
-  // 1. Direct Bot Deep-Link: Opens Bot Chat with /start ref_USERID
   const directBotRefLink = `https://t.me/${botUsername}?start=ref_${telegramId}`;
 
-  // 2. Telegram Share Intent URL: Directly shares bot referral link with pre-written inviting message
-  const shareMessage = `🎁 Join QEarn now to get 50 Free Coins & earn Mobile Recharge by uploading Diploma exam questions!\n\n👇 Click to start:\n${directBotRefLink}`;
-  const shareOnTelegramUrl = `https://t.me/share/url?url=${encodeURIComponent(directBotRefLink)}&text=${encodeURIComponent("🎁 Get 50 Free Coins & Earn Mobile Recharge on QEarn!")}`;
+  const shareOnTelegramUrl = `https://t.me/share/url?url=${encodeURIComponent(
+    directBotRefLink
+  )}&text=${encodeURIComponent(
+    "🎁 Join QEarn now to get 50 Free Coins & earn Mobile Recharge by uploading Diploma exam questions!"
+  )}`;
 
   const fetchReferralStats = async () => {
     if (!telegramId) return;
@@ -67,7 +69,7 @@ export default function ReferPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between max-w-md mx-auto w-full">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between max-w-md mx-auto w-full select-none">
       {/* 1. Global Navbar */}
       <Navbar />
 
@@ -111,7 +113,7 @@ export default function ReferPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                Earn <span className="text-amber-300 font-bold font-mono">100 Coins (৳10 TK)</span> for each friend who starts the bot & verifies official channel!
+                Earn <span className="text-amber-300 font-bold font-mono">100 Coins (৳10 TK)</span> when your friend completes all 4 tasks!
               </p>
             </div>
           </div>
@@ -147,7 +149,7 @@ export default function ReferPage() {
             <span className="text-[9px] text-slate-500 block">Invited</span>
           </div>
 
-          {/* 2. Success Referrals (Channel Verified) */}
+          {/* 2. Success Referrals (All 4 Tasks Verified) */}
           <div className="bg-slate-900/90 border border-emerald-500/40 rounded-2xl p-3 text-center shadow-lg bg-emerald-950/20">
             <span className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider block">
               Success Refer
@@ -155,7 +157,7 @@ export default function ReferPage() {
             <p className="text-xl font-black text-emerald-400 font-mono mt-0.5">
               ✓ {stats.successReferrals || 0}
             </p>
-            <span className="text-[9px] text-emerald-400/80 block">Verified</span>
+            <span className="text-[9px] text-emerald-400/80 block">4/4 Tasks</span>
           </div>
 
           {/* 3. Bonus Coins Earned (Only from Success Referrals) */}
@@ -172,14 +174,39 @@ export default function ReferPage() {
           </div>
         </div>
 
-        {/* Rule Explanation Banner */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1.5 text-xs text-slate-300">
-          <div className="flex items-center space-x-1.5 text-amber-400 font-bold">
-            <span>ℹ️</span>
-            <span>Success Referral Rules:</span>
+        {/* 4-Task Rule Explanation Banner */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2 text-xs text-slate-300">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-1.5 text-amber-400 font-bold">
+              <span>📋</span>
+              <span>4 Required Tasks for Success Referral:</span>
+            </div>
+            <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.2 rounded-full font-bold">
+              +100 Coins
+            </span>
           </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            When a friend starts the bot (<span className="text-sky-300 font-mono">/start ref</span>) using your link and <span className="text-white font-semibold">joins & verifies the official channel task</span>, it is marked as a <span className="text-emerald-400 font-bold">Success Referral</span> and you instantly receive <span className="text-amber-400 font-bold">+100 Coins (৳10 TK)</span>!
+
+          <div className="grid grid-cols-2 gap-1.5 pt-1 text-[11px] text-slate-300">
+            <div className="p-2 bg-slate-950 rounded-xl border border-slate-800 flex items-center space-x-1.5">
+              <span className="text-purple-400">1.</span>
+              <span>Official Channel</span>
+            </div>
+            <div className="p-2 bg-slate-950 rounded-xl border border-slate-800 flex items-center space-x-1.5">
+              <span className="text-emerald-400">2.</span>
+              <span>Payment Channel</span>
+            </div>
+            <div className="p-2 bg-slate-950 rounded-xl border border-slate-800 flex items-center space-x-1.5">
+              <span className="text-amber-400">3.</span>
+              <span>Activities Channel</span>
+            </div>
+            <div className="p-2 bg-slate-950 rounded-xl border border-slate-800 flex items-center space-x-1.5">
+              <span className="text-sky-400">4.</span>
+              <span>Approved Question</span>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-slate-400 pt-0.5 leading-relaxed">
+            💡 Click on any referred user card below to view their live task progress!
           </p>
         </div>
 
@@ -201,7 +228,7 @@ export default function ReferPage() {
           </div>
         </div>
 
-        {/* Referred Friends List with Live Status Badges */}
+        {/* Referred Friends List (Interactive Cards with 4-Task Status) */}
         <div className="space-y-2.5">
           <div className="flex justify-between items-center px-1">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -219,50 +246,68 @@ export default function ReferPage() {
               <span className="text-3xl">👥</span>
               <p className="text-sm font-bold text-white">No referrals yet</p>
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Share your bot referral link with your classmates and Telegram friends to start earning +100 Coins per verified join!
+                Share your bot referral link with your classmates and Telegram friends to start earning +100 Coins!
               </p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
               {referredUsers.map((friend, idx) => (
                 <div
                   key={friend.id || idx}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 flex justify-between items-center text-xs shadow-md"
+                  onClick={() => setSelectedUserDetail(friend)}
+                  className={`p-4 rounded-3xl border transition-all cursor-pointer active:scale-98 shadow-md space-y-2.5 ${
+                    friend.isSuccess
+                      ? "bg-slate-900/90 border-emerald-500/40 hover:border-emerald-400"
+                      : "bg-slate-900 border-slate-800 hover:border-sky-500/40"
+                  }`}
                 >
-                  <div className="flex items-center space-x-3">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm ${
-                        friend.isSuccess
-                          ? "bg-gradient-to-tr from-emerald-500 to-teal-600 shadow-md shadow-emerald-500/20"
-                          : "bg-slate-800 text-slate-400 border border-slate-700"
-                      }`}
-                    >
-                      {friend.name[0] || "U"}
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center space-x-3">
+                      <div
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-white text-sm shadow-md ${
+                          friend.isSuccess
+                            ? "bg-gradient-to-tr from-emerald-500 to-teal-600 shadow-emerald-500/20"
+                            : "bg-slate-800 text-slate-400 border border-slate-700"
+                        }`}
+                      >
+                        {friend.name[0] || "U"}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white text-sm">{friend.name}</h4>
+                        <p className="text-[10px] text-slate-400 font-mono">{friend.username}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-white text-sm">{friend.name}</h4>
-                      <p className="text-[10px] text-slate-400 font-mono">{friend.username}</p>
-                      <span className="text-[10px] text-slate-500 mt-0.5 block">{friend.joinedAt}</span>
+
+                    <div className="text-right space-y-0.5">
+                      <span
+                        className={`inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                          friend.isSuccess
+                            ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30 font-mono"
+                            : "bg-amber-500/15 text-amber-300 border-amber-500/30 font-mono"
+                        }`}
+                      >
+                        {friend.isSuccess
+                          ? "✓ Success (+100)"
+                          : `⏳ ${friend.completedCount || 0}/4 Tasks`}
+                      </span>
+                      <span className="text-[9px] text-slate-500 block">{friend.joinedAt}</span>
                     </div>
                   </div>
 
-                  <div className="text-right space-y-1">
-                    <span
-                      className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        friend.isSuccess
-                          ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30 font-mono"
-                          : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                      }`}
-                    >
-                      {friend.isSuccess ? "✓ Success" : "⏳ Pending"}
-                    </span>
-                    <span
-                      className={`text-xs font-bold font-mono block ${
-                        friend.isSuccess ? "text-emerald-400" : "text-slate-500"
-                      }`}
-                    >
-                      {friend.isSuccess ? "+100 Coins" : "0 Coins"}
-                    </span>
+                  {/* 4 Task Mini Progress Indicators */}
+                  <div className="grid grid-cols-4 gap-1.5 pt-1">
+                    {friend.tasks?.map((t, tIdx) => (
+                      <div
+                        key={t.id || tIdx}
+                        className={`py-1.5 px-1 rounded-xl text-center text-[9px] font-bold border transition-all ${
+                          t.isCompleted
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                            : "bg-slate-950 text-slate-500 border-slate-800"
+                        }`}
+                      >
+                        <span className="block truncate">{t.isCompleted ? "✓" : "○"} T{tIdx + 1}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -270,6 +315,108 @@ export default function ReferPage() {
           )}
         </div>
       </main>
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL: 4-TASK BREAKDOWN DETAIL POPUP                          */}
+      {/* ------------------------------------------------------------- */}
+      {selectedUserDetail && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex justify-between items-start pb-2 border-b border-slate-800">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center font-bold text-white text-base">
+                  {selectedUserDetail.name[0] || "U"}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">{selectedUserDetail.name}</h3>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    {selectedUserDetail.username} • ID: {selectedUserDetail.id}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedUserDetail(null)}
+                className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 flex items-center justify-center text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Overall Status Banner */}
+            <div
+              className={`p-3 rounded-2xl border text-xs font-semibold flex justify-between items-center ${
+                selectedUserDetail.isSuccess
+                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                  : "bg-amber-500/15 border-amber-500/30 text-amber-300"
+              }`}
+            >
+              <span>Referral Status:</span>
+              <span className="font-bold">
+                {selectedUserDetail.isSuccess
+                  ? "✅ Success (+100 Coins Claimed)"
+                  : `⏳ Incomplete (${selectedUserDetail.completedCount}/4 Tasks)`}
+              </span>
+            </div>
+
+            {/* Detailed 4-Task Checklist */}
+            <div className="space-y-2">
+              <h4 className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
+                Task Completion Breakdown:
+              </h4>
+
+              {selectedUserDetail.tasks?.map((task, idx) => (
+                <div
+                  key={task.id || idx}
+                  className={`p-3 rounded-2xl border flex items-center justify-between text-xs ${
+                    task.isCompleted
+                      ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-200"
+                      : "bg-slate-950 border-slate-800 text-slate-400"
+                  }`}
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <span
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        task.isCompleted
+                          ? "bg-emerald-500 text-slate-950"
+                          : "bg-slate-800 text-slate-500 border border-slate-700"
+                      }`}
+                    >
+                      {task.isCompleted ? "✓" : idx + 1}
+                    </span>
+                    <span className="font-medium text-white">{task.name}</span>
+                  </div>
+
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      task.isCompleted
+                        ? "bg-emerald-500/20 text-emerald-300 font-mono"
+                        : "bg-slate-800 text-slate-500 font-mono"
+                    }`}
+                  >
+                    {task.isCompleted ? "Completed ✓" : "Pending"}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Note Footer */}
+            <p className="text-[10px] text-slate-500 text-center leading-relaxed">
+              {selectedUserDetail.isSuccess
+                ? "🎉 All 4 requirements fulfilled! Referrer bonus has been awarded."
+                : "⚠️ +100 Coins will be automatically credited when all 4 tasks are verified."}
+            </p>
+
+            <button
+              onClick={() => setSelectedUserDetail(null)}
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="w-full text-center py-4">

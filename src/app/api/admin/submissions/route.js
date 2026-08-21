@@ -5,6 +5,8 @@ import User from "@/models/User";
 import Transaction from "@/models/Transaction";
 import { broadcastPaymentCompleted, broadcastActivity } from "@/lib/telegramBroadcast";
 
+const REFERRAL_BONUS_COINS = 100;
+
 // Simple secure admin passcode
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "admin123";
 
@@ -89,7 +91,7 @@ export async function POST(request) {
         transaction.trxId = trxId ? String(trxId).trim() : `TRX_${Date.now().toString().slice(-8)}`;
         await transaction.save();
 
-        // ⚡ CRITICAL FIX: Await broadcast to @Qearn_Payment immediately
+        // ⚡ Await broadcast to @Qearn_Payment on Completion
         try {
           await broadcastPaymentCompleted({
             amount: transaction.amount,
@@ -159,6 +161,7 @@ export async function POST(request) {
         if (user) {
           user.balance += reward;
           user.totalEarned += reward;
+          user.hasApprovedQuestionUpload = true; // Mark Task 4 as COMPLETE
           await user.save();
 
           await Transaction.create({
@@ -169,7 +172,46 @@ export async function POST(request) {
             status: "completed",
           });
 
-          // ⚡ CRITICAL FIX: Await broadcast activity to @Qearn_Activities
+          // ⚡ CHECK IF ALL 4 REFERRAL REQUIREMENTS ARE NOW MET:
+          const hasCompletedAll4 =
+            Boolean(user.hasJoinedMainChannel) &&
+            Boolean(user.hasJoinedPaymentChannel) &&
+            Boolean(user.hasJoinedActivitiesChannel) &&
+            Boolean(user.hasApprovedQuestionUpload);
+
+          if (hasCompletedAll4 && user.referredBy && !user.isReferralRewardPaid) {
+            const referrerUser = await User.findOne({ telegramId: user.referredBy });
+            if (referrerUser) {
+              referrerUser.balance += REFERRAL_BONUS_COINS;
+              referrerUser.totalEarned += REFERRAL_BONUS_COINS;
+              await referrerUser.save();
+
+              user.isReferralRewardPaid = true;
+              await user.save();
+
+              // Create transaction for Referrer
+              await Transaction.create({
+                telegramId: user.referredBy,
+                title: `Successful Referral Reward: ${user.firstName || "Friend"} completed all 4 tasks (@${user.username || user.telegramId})`,
+                type: "earn",
+                amount: REFERRAL_BONUS_COINS,
+                status: "completed",
+              });
+
+              // Broadcast to @Qearn_Activities
+              broadcastActivity({
+                badge: "🎉",
+                title: "Referral Success Unlocked",
+                description: `User <b>${user.firstName || "Friend"}</b> completed all 4 tasks (3 channels + approved question)! Referrer rewarded!`,
+                details: {
+                  "Referrer ID": `<code>${user.referredBy}</code>`,
+                  "Bonus Awarded": `+${REFERRAL_BONUS_COINS} Coins (৳10 TK)`,
+                },
+              }).catch(console.error);
+            }
+          }
+
+          // ⚡ Await broadcast activity to @Qearn_Activities
           try {
             await broadcastActivity({
               badge: "🎉",
