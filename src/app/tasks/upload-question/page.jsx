@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { useUser } from "@/context/UserContext";
-import { playMonetagAd, openMonetagDirectLink, isMonetagSDKReady } from "@/lib/monetag";
+import { playMonetagRewardedInterstitial } from "@/lib/monetag";
+import { detectAdBlocker } from "@/lib/adBlockDetector";
 
 export default function SubjectsUploadPage() {
   const router = useRouter();
@@ -16,6 +17,9 @@ export default function SubjectsUploadPage() {
   const [loadingAd, setLoadingAd] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [isError, setIsError] = useState(false);
+
+  // Private DNS / AdBlocker State
+  const [isAdBlockDetected, setIsAdBlockDetected] = useState(false);
 
   // 15-Second Timer State
   const [secondsRemaining, setSecondsRemaining] = useState(15);
@@ -30,6 +34,15 @@ export default function SubjectsUploadPage() {
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Check for AdBlock / Private DNS on Mount
+  useEffect(() => {
+    detectAdBlocker().then((blocked) => {
+      if (blocked) {
+        setIsAdBlockDetected(true);
+      }
+    });
+  }, []);
 
   // 1. Fetch available subjects from API (Merged & Filtered)
   const fetchAvailableSubjects = async () => {
@@ -75,19 +88,18 @@ export default function SubjectsUploadPage() {
   }, []);
 
   // Step 1: Watch Ad with 15s Timer
-  const handleWatchAdAndProceed = () => {
+  const handleWatchAdAndProceed = async () => {
     setIsError(false);
     setStatusMessage("");
-    setLoadingAd(true);
 
-    // 1. Instantly trigger the Ad (SDK or Direct Smartlink in new window)
-    try {
-      playMonetagAd();
-    } catch (err) {
-      console.warn("Ad trigger error:", err);
+    // Test for DNS block before starting
+    const isBlocked = await detectAdBlocker();
+    if (isBlocked) {
+      setIsAdBlockDetected(true);
+      return;
     }
 
-    // 2. Start the 15s Countdown Screen
+    setLoadingAd(true);
     setStep("watching_ad");
     setSecondsRemaining(15);
     isWatchingAdRef.current = true;
@@ -110,6 +122,26 @@ export default function SubjectsUploadPage() {
         return prev - 1;
       });
     }, 1000);
+
+    // Trigger Monetag Ad / Direct Link
+    try {
+      const adResult = await playMonetagRewardedInterstitial();
+      if (!adResult.adShown) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        isWatchingAdRef.current = false;
+        setStep("ad");
+        setIsAdBlockDetected(true);
+        setLoadingAd(false);
+        return;
+      }
+    } catch (err) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      isWatchingAdRef.current = false;
+      setStep("ad");
+      setIsAdBlockDetected(true);
+      setLoadingAd(false);
+      return;
+    }
 
     setLoadingAd(false);
   };
@@ -200,6 +232,45 @@ export default function SubjectsUploadPage() {
           </span>
         </div>
 
+        {/* ------------------------------------------------------------- */}
+        {/* PRIVATE DNS / AD BLOCKER WARNING MODAL                        */}
+        {/* ------------------------------------------------------------- */}
+        {isAdBlockDetected && (
+          <div className="p-5 bg-rose-950/50 border-2 border-rose-500/60 rounded-3xl space-y-3.5 shadow-2xl animate-bounce-short">
+            <div className="flex items-start space-x-3">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h3 className="text-sm font-extrabold text-rose-300">
+                  Private DNS / AdBlock Detected!
+                </h3>
+                <p className="text-xs text-rose-200/90 mt-1 leading-relaxed">
+                  আপনার ফোনে <span className="font-bold text-white">Private DNS</span> (যেমন: AdGuard, NextDNS) অথবা <span className="font-bold text-white">AdBlocker</span> চালু থাকায় বিজ্ঞাপন লোড হতে পারছে না।
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-950/80 rounded-2xl border border-rose-500/30 text-[11px] text-slate-300 space-y-1">
+              <p className="font-bold text-amber-300">💡 যেভাবে ঠিক করবেন:</p>
+              <p>১. ফোনের <b>Settings ➔ Connections ➔ More connection settings ➔ Private DNS</b>-এ যান।</p>
+              <p>২. Private DNS <b className="text-emerald-400">Off</b> অথবা <b className="text-emerald-400">Automatic</b> সিলেক্ট করুন।</p>
+            </div>
+
+            <button
+              onClick={async () => {
+                const stillBlocked = await detectAdBlocker();
+                if (!stillBlocked) {
+                  setIsAdBlockDetected(false);
+                } else {
+                  alert("⚠️ Private DNS is still active! Please turn it off in phone settings.");
+                }
+              }}
+              className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-lg active:scale-95 transition-all"
+            >
+              🔄 I have turned off Private DNS (Check Again)
+            </button>
+          </div>
+        )}
+
         {/* Status Alerts */}
         {statusMessage && (
           <div
@@ -245,7 +316,7 @@ export default function SubjectsUploadPage() {
               }`}
             >
               <span>⚡</span>
-              <span>{loadingAd ? "Opening Ad..." : "Watch 15s Ad & Unlock Subjects"}</span>
+              <span>{loadingAd ? "Loading Ad..." : "Watch 15s Ad & Unlock Subjects"}</span>
             </button>
           </div>
         )}
@@ -268,9 +339,9 @@ export default function SubjectsUploadPage() {
             <div className="space-y-2">
               <h2 className="text-base font-bold text-white">Viewing Sponsored Content</h2>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Ad opened in new tab. Please stay active. <br />
+                Please stay on this screen. <br />
                 <span className="text-amber-400 font-bold">
-                  Do not close or leave before 15 seconds!
+                  Do not close or leave the app before 15 seconds!
                 </span>
               </p>
             </div>
@@ -282,15 +353,6 @@ export default function SubjectsUploadPage() {
                 style={{ width: `${((15 - secondsRemaining) / 15) * 100}%` }}
               />
             </div>
-
-            {/* Reopen Ad Link if blocked */}
-            <button
-              type="button"
-              onClick={openMonetagDirectLink}
-              className="text-[11px] text-sky-400 hover:text-sky-300 underline font-semibold block mx-auto"
-            >
-              Ad didn't open? Click here to open Ad
-            </button>
           </div>
         )}
 

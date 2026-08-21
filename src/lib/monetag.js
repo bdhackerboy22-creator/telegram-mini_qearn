@@ -1,61 +1,36 @@
-// Monetag Rewarded Interstitial & Smartlink Ad Handler
+// Monetag Rewarded Interstitial SDK Handler
 
 export const MONETAG_CONFIG = {
   ZONE_ID: "11576758",
-  // Monetag Direct Smartlink Fallback
-  DIRECT_LINK: "https://otootoup.com/4/8834927",
 };
 
 /**
- * 1. Check if Monetag SDK is successfully loaded on window
+ * Trigger Monetag Official Rewarded Interstitial Ad
+ * Returns a promise with status { success: boolean, adShown: boolean, error?: string }
  */
-export function isMonetagSDKReady() {
-  if (typeof window === "undefined") return false;
-  return typeof window.show_11576758 === "function";
-}
+export function playMonetagRewardedInterstitial() {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") {
+      return resolve({ success: true, adShown: true });
+    }
 
-/**
- * 2. Play Monetag Ad:
- * - First tries the Official SDK (window.show_11576758())
- * - If SDK is blocked or unavailable, automatically opens Monetag Direct Link in browser / Telegram WebApp
- */
-export function playMonetagAd() {
-  if (typeof window === "undefined") return;
+    // If official SDK function exists on window
+    if (typeof window.show_11576758 === "function") {
+      console.log("Invoking Monetag show_11576758()...");
 
-  // Method A: Official SDK Rewarded Interstitial
-  if (typeof window.show_11576758 === "function") {
-    try {
       window
         .show_11576758()
         .then(() => {
-          console.log("Monetag Ad playback completed!");
+          console.log("Monetag Ad playback officially completed & closed by user!");
+          resolve({ success: true, adShown: true });
         })
         .catch((err) => {
-          console.warn("Monetag SDK error, falling back to Direct Link:", err);
-          openMonetagDirectLink();
+          console.warn("Monetag Ad failed or was blocked:", err);
+          resolve({ success: false, adShown: false, error: err?.message || "Ad playback blocked" });
         });
-      return;
-    } catch (e) {
-      console.warn("SDK call failed:", e);
+    } else {
+      console.warn("show_11576758 function not found on window (Script likely blocked by DNS)");
+      resolve({ success: false, adShown: false, error: "Monetag script blocked by Private DNS" });
     }
-  }
-
-  // Method B: Direct Smartlink in new window / Telegram link
-  openMonetagDirectLink();
-}
-
-/**
- * Open Monetag Direct Smartlink in external browser / tab
- */
-export function openMonetagDirectLink() {
-  if (typeof window === "undefined") return;
-
-  const directLink = MONETAG_CONFIG.DIRECT_LINK;
-
-  if (window.Telegram?.WebApp) {
-    // Open in Telegram External In-App / System Browser
-    window.Telegram.WebApp.openLink(directLink);
-  } else {
-    window.open(directLink, "_blank", "noopener,noreferrer");
-  }
+  });
 }
