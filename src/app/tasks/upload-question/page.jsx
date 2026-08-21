@@ -6,6 +6,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { useUser } from "@/context/UserContext";
 import { playMonetagRewardedInterstitial } from "@/lib/monetag";
+import { detectAdBlocker } from "@/lib/adBlockDetector";
 
 export default function SubjectsUploadPage() {
   const router = useRouter();
@@ -16,6 +17,9 @@ export default function SubjectsUploadPage() {
   const [loadingAd, setLoadingAd] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [isError, setIsError] = useState(false);
+
+  // Private DNS / AdBlocker State
+  const [isAdBlockDetected, setIsAdBlockDetected] = useState(false);
 
   // 15-Second Timer State
   const [secondsRemaining, setSecondsRemaining] = useState(15);
@@ -30,6 +34,15 @@ export default function SubjectsUploadPage() {
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Check for AdBlock / Private DNS on Mount
+  useEffect(() => {
+    detectAdBlocker().then((blocked) => {
+      if (blocked) {
+        setIsAdBlockDetected(true);
+      }
+    });
+  }, []);
 
   // 1. Fetch available subjects from API (Merged & Filtered)
   const fetchAvailableSubjects = async () => {
@@ -61,7 +74,7 @@ export default function SubjectsUploadPage() {
           setStep("ad");
           setIsError(true);
           setStatusMessage(
-            "❌ Ad Incomplete! You returned before 15 seconds. Please watch for full 15s to unlock."
+            "❌ Ad Incomplete! You returned before 15 seconds. Please stay on ad page for full 15s to unlock."
           );
         }
       }
@@ -75,9 +88,17 @@ export default function SubjectsUploadPage() {
   }, []);
 
   // Step 1: Watch Ad with 15s Timer
-  const handleWatchAdAndProceed = () => {
+  const handleWatchAdAndProceed = async () => {
     setIsError(false);
     setStatusMessage("");
+
+    // Test for DNS block before starting
+    const isBlocked = await detectAdBlocker();
+    if (isBlocked) {
+      setIsAdBlockDetected(true);
+      return;
+    }
+
     setLoadingAd(true);
     setStep("watching_ad");
     setSecondsRemaining(15);
@@ -102,7 +123,7 @@ export default function SubjectsUploadPage() {
       });
     }, 1000);
 
-    // Trigger Monetag Ad
+    // Trigger Monetag Ad / Direct Link
     try {
       playMonetagRewardedInterstitial();
     } catch (err) {
@@ -144,313 +165,383 @@ export default function SubjectsUploadPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           telegramId: user?.id || "demo_user",
-          subjectName: selectedSubject.name,
           subjectCode: selectedSubject.code,
-          subjectDate: selectedSubject.date || "",
+          subjectName: selectedSubject.name,
+          subjectDate: selectedSubject.date,
           imageBase64: imagePreview,
         }),
       });
 
       const data = await response.json();
+
       if (data.success) {
         setStep("success");
       } else {
         setIsError(true);
-        setStatusMessage(data.error || "Failed to submit question");
+        setStatusMessage(data.error || "Submission failed. Please try again.");
       }
     } catch (err) {
       setIsError(true);
-      setStatusMessage("Network error during upload");
+      setStatusMessage("Network error during submission. Please try again.");
     }
 
     setIsSubmitting(false);
   };
 
-  // Filter subjects by search
+  // Filter subjects based on search
   const filteredSubjects = subjects.filter(
     (sub) =>
       sub.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sub.code.toLowerCase().includes(searchQuery.toLowerCase())
+      sub.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (sub.date && sub.date.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between max-w-md mx-auto w-full">
-      {/* 1. Global Navbar */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between max-w-md mx-auto w-full select-none">
+      {/* 1. Top Navbar */}
       <Navbar />
 
-      {/* Main Full-Screen Content */}
-      <main className="p-4 space-y-4 flex-1 flex flex-col">
+      {/* 2. Main Content Body */}
+      <main className="p-4 space-y-4 flex-1 flex flex-col justify-center">
         {/* Navigation Breadcrumb */}
         <div className="flex items-center justify-between pb-1 border-b border-slate-800/80">
           <div className="flex items-center space-x-2">
-            <button
-              onClick={() => {
-                if (step === "upload_image") {
-                  setStep("select_subject");
-                } else if (step === "select_subject") {
-                  setStep("ad");
-                } else {
-                  router.push("/tasks");
-                }
-              }}
+            <Link
+              href="/tasks"
               className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white text-sm active:scale-95 transition-transform"
             >
               ←
-            </button>
-            <h1 className="text-base font-bold text-white">
-              {step === "upload_image"
-                ? "Upload Question Photo"
-                : step === "select_subject"
-                ? "Select Subject"
-                : "Question Upload Task"}
-            </h1>
+            </Link>
+            <h1 className="text-base font-bold text-white">Upload Exam Question</h1>
           </div>
-
-          <span className="text-[11px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
+          <span className="text-[11px] font-mono text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 font-bold">
             +50 Coins
           </span>
         </div>
 
-        {/* Status Message Alert */}
+        {/* ------------------------------------------------------------- */}
+        {/* PRIVATE DNS / AD BLOCKER WARNING MODAL                        */}
+        {/* ------------------------------------------------------------- */}
+        {isAdBlockDetected && (
+          <div className="p-5 bg-rose-950/50 border-2 border-rose-500/60 rounded-3xl space-y-3.5 shadow-2xl animate-bounce-short">
+            <div className="flex items-start space-x-3">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h3 className="text-sm font-extrabold text-rose-300">
+                  Private DNS / AdBlock Detected!
+                </h3>
+                <p className="text-xs text-rose-200/90 mt-1 leading-relaxed">
+                  আপনার ফোনে <span className="font-bold text-white">Private DNS</span> (যেমন: AdGuard, NextDNS) অথবা <span className="font-bold text-white">AdBlocker</span> চালু থাকায় বিজ্ঞাপন লোড হতে পারছে না।
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-950/80 rounded-2xl border border-rose-500/30 text-[11px] text-slate-300 space-y-1">
+              <p className="font-bold text-amber-300">💡 যেভাবে ঠিক করবেন:</p>
+              <p>১. ফোনের <b>Settings ➔ Connections ➔ More connection settings ➔ Private DNS</b>-এ যান।</p>
+              <p>২. Private DNS <b className="text-emerald-400">Off</b> অথবা <b className="text-emerald-400">Automatic</b> সিলেক্ট করুন।</p>
+            </div>
+
+            <button
+              onClick={async () => {
+                const stillBlocked = await detectAdBlocker();
+                if (!stillBlocked) {
+                  setIsAdBlockDetected(false);
+                } else {
+                  alert("⚠️ Private DNS is still active! Please turn it off in phone settings.");
+                }
+              }}
+              className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-lg active:scale-95 transition-all"
+            >
+              🔄 I have turned off Private DNS (Check Again)
+            </button>
+          </div>
+        )}
+
+        {/* Status Alerts */}
         {statusMessage && (
           <div
-            className={`p-3 border text-xs font-semibold rounded-2xl text-center ${
+            className={`p-3.5 rounded-2xl text-xs font-semibold text-center border ${
               isError
                 ? "bg-rose-500/20 border-rose-500/30 text-rose-300"
-                : "bg-emerald-500/20 border-emerald-500/30 text-emerald-300 animate-pulse"
+                : "bg-emerald-500/20 border-emerald-500/30 text-emerald-300"
             }`}
           >
             {statusMessage}
           </div>
         )}
 
-        {/* STAGE 1: Ad Requirement Screen */}
+        {/* ------------------------------------------------------------- */}
+        {/* STEP 1: WATCH 15S AD SCREEN                                  */}
+        {/* ------------------------------------------------------------- */}
         {step === "ad" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-5 py-6">
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500/20 to-orange-500/10 border border-amber-500/30 flex items-center justify-center text-4xl shadow-xl shadow-amber-500/10">
+          <div className="bg-gradient-to-r from-slate-900 via-sky-950/30 to-slate-900 border border-sky-500/40 rounded-3xl p-6 shadow-2xl space-y-5 text-center">
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-3xl shadow-xl shadow-sky-500/20">
               📺
             </div>
-            <div className="space-y-1.5 max-w-xs">
-              <h2 className="text-lg font-bold text-white">
-                15-Second Sponsored Ad
-              </h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Watch a 15-second sponsored ad to unlock the remaining available question subjects list.
+
+            <div className="space-y-1.5">
+              <h2 className="text-lg font-bold text-white">Watch 15s Sponsor Ad</h2>
+              <p className="text-xs text-slate-300 leading-relaxed max-w-xs mx-auto">
+                Watch a short 15-second ad to unlock the available subject database and upload your exam question!
               </p>
             </div>
 
-            <div className="w-full max-w-xs pt-4">
-              <button
-                onClick={handleWatchAdAndProceed}
-                disabled={loadingAd}
-                className="w-full py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center space-x-2"
-              >
-                <span>⚡</span>
-                <span>{loadingAd ? "Opening Ad..." : "Watch Ad & Unlock Subjects"}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* STAGE 1.5: 15s Countdown Screen */}
-        {step === "watching_ad" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 py-6">
-            <div className="relative flex items-center justify-center">
-              <div className="w-28 h-28 rounded-full border-4 border-slate-800 border-t-amber-400 animate-spin" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-black text-amber-400 font-mono">
-                  {secondsRemaining}s
-                </span>
-              </div>
+            {/* Reward Preview */}
+            <div className="p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800 flex justify-between items-center text-xs font-mono">
+              <span className="text-slate-400">Reward per approved upload:</span>
+              <span className="text-amber-400 font-extrabold">🪙 +50 Coins</span>
             </div>
 
-            <div className="space-y-1.5 max-w-xs">
-              <h3 className="text-base font-bold text-white">
-                Ad Session in Progress
-              </h3>
-              <p className="text-xs text-slate-400">
-                Please stay on the ad for <span className="text-amber-400 font-bold">{secondsRemaining} seconds</span>. Returning before time will reset the session.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* STAGE 2: Full-Screen Subject Selection List (Filtered) */}
-        {step === "select_subject" && (
-          <div className="space-y-3 flex-1 flex flex-col">
-            {/* Search Input */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search subject by name or code (e.g. MATH-101)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 rounded-2xl px-4 py-3 text-xs text-white placeholder:text-slate-500 focus:outline-none shadow-inner"
-              />
-              <span className="absolute right-3.5 top-3 text-slate-500 text-sm">🔍</span>
-            </div>
-
-            {/* List */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[60vh]">
-              {loadingSubjects ? (
-                <div className="p-12 text-center space-y-2">
-                  <div className="w-8 h-8 border-2 border-slate-700 border-t-sky-400 rounded-full animate-spin mx-auto" />
-                  <p className="text-xs text-slate-400">Loading remaining subjects...</p>
-                </div>
-              ) : filteredSubjects.length === 0 ? (
-                <div className="p-12 text-center bg-slate-900/60 border border-slate-800 rounded-3xl space-y-2">
-                  <span className="text-3xl">🎉</span>
-                  <p className="text-sm font-bold text-white">All Subjects Completed!</p>
-                  <p className="text-xs text-slate-400">
-                    All question subjects have already been uploaded by contributors.
-                  </p>
-                </div>
-              ) : (
-                filteredSubjects.map((sub) => (
-                  <button
-                    key={sub.code}
-                    onClick={() => handleSelectSubject(sub)}
-                    className="w-full p-4 bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-sky-500/50 rounded-2xl flex items-center justify-between transition-all group active:scale-98 text-left shadow-md"
-                  >
-                    <div className="flex items-center space-x-3.5">
-                      <span className="text-2xl">{sub.icon || "📚"}</span>
-                      <div>
-                        <h4 className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors">
-                          {sub.name}
-                        </h4>
-                        <div className="flex items-center space-x-2 mt-0.5">
-                          <span className="text-[11px] font-mono text-slate-400">
-                            Code: <span className="text-sky-400 font-bold">{sub.code}</span>
-                          </span>
-                          {sub.date && (
-                            <span className="text-[10px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.2 rounded-full">
-                              📅 {sub.date}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-sky-400 bg-sky-500/10 px-3 py-1.5 rounded-xl group-hover:bg-sky-500 group-hover:text-white transition-all">
-                      Select →
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* STAGE 3: Full-Screen Image Upload & Preview */}
-        {step === "upload_image" && selectedSubject && (
-          <div className="space-y-4 flex-1 flex flex-col justify-between">
-            <div className="space-y-4">
-              {/* Selected Subject Banner */}
-              <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex justify-between items-center shadow-lg">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Target Subject</span>
-                  <h3 className="text-sm font-bold text-white">{selectedSubject.name}</h3>
-                  <p className="text-xs font-mono text-sky-400">Code: {selectedSubject.code}</p>
-                </div>
-                <button
-                  onClick={() => setStep("select_subject")}
-                  className="text-xs font-semibold text-sky-400 hover:underline px-2.5 py-1 bg-sky-500/10 rounded-xl"
-                >
-                  Change
-                </button>
-              </div>
-
-              {/* Photo Selector Area */}
-              <div className="border-2 border-dashed border-slate-800 hover:border-sky-500/60 rounded-3xl p-5 text-center transition-colors bg-slate-900/40">
-                {imagePreview ? (
-                  <div className="space-y-3">
-                    <img
-                      src={imagePreview}
-                      alt="Question Preview"
-                      className="max-h-52 mx-auto rounded-2xl object-contain border border-slate-800 shadow-xl"
-                    />
-                    <label className="inline-block px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-bold rounded-xl cursor-pointer active:scale-95 transition-all">
-                      Choose Another Photo
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center space-y-3 py-8 cursor-pointer group">
-                    <div className="w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
-                      📷
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-white">
-                        Click to Take / Select Question Photo
-                      </h4>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        High resolution JPG, PNG or WebP
-                      </p>
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            {/* Submit Action Button */}
             <button
-              onClick={handleSubmitQuestion}
-              disabled={!imagePreview || isSubmitting}
-              className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center space-x-2 transition-all ${
-                !imagePreview || isSubmitting
+              onClick={handleWatchAdAndProceed}
+              disabled={loadingAd}
+              className={`w-full py-4 text-white font-black text-sm rounded-2xl shadow-xl transition-all flex items-center justify-center space-x-2 ${
+                loadingAd
                   ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                  : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-xl shadow-emerald-500/20 active:scale-95"
+                  : "bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 hover:from-sky-400 hover:to-purple-500 shadow-sky-500/25 active:scale-98"
               }`}
             >
-              <span>{isSubmitting ? "Uploading to Cloud..." : "Submit for Verification"}</span>
+              <span>⚡</span>
+              <span>{loadingAd ? "Loading Ad..." : "Watch 15s Ad & Unlock Subjects"}</span>
             </button>
           </div>
         )}
 
-        {/* STAGE 4: Success / Pending Screen */}
-        {step === "success" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-5 py-8 animate-fadeIn">
-            <div className="w-20 h-20 rounded-3xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-4xl shadow-xl shadow-amber-500/10">
-              ⏳
-            </div>
-            <div className="space-y-2 max-w-xs">
-              <h2 className="text-xl font-bold text-white">
-                Upload Submitted!
-              </h2>
-              <div className="inline-block px-3 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 rounded-full text-xs font-bold font-mono">
-                Status: Pending Verification 🟡
+        {/* ------------------------------------------------------------- */}
+        {/* STEP 1.5: 15-SECOND COUNTDOWN WATCHING AD SCREEN             */}
+        {/* ------------------------------------------------------------- */}
+        {step === "watching_ad" && (
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/50 rounded-3xl p-6 shadow-2xl space-y-6 text-center">
+            <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full border-4 border-slate-800 border-t-amber-400 animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center flex-col">
+                <span className="text-2xl font-black text-amber-400 font-mono">
+                  {secondsRemaining}s
+                </span>
+                <span className="text-[9px] uppercase font-bold text-slate-400">Left</span>
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed pt-1">
-                Your question photo has been submitted to the queue. Admin will verify it shortly. You will receive coins once verified.
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-base font-bold text-white">Viewing Sponsored Content</h2>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Please stay on this screen. <br />
+                <span className="text-amber-400 font-bold">
+                  Do not close or leave the app before 15 seconds!
+                </span>
               </p>
             </div>
 
-            <div className="w-full max-w-xs pt-4">
-              <Link
-                href="/tasks"
-                className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm rounded-2xl border border-slate-800 transition-all block"
+            {/* Progress Bar */}
+            <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
+              <div
+                className="bg-gradient-to-r from-amber-400 to-emerald-400 h-full transition-all duration-1000"
+                style={{ width: `${((15 - secondsRemaining) / 15) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ------------------------------------------------------------- */}
+        {/* STEP 2: SELECT AVAILABLE SUBJECT (Merged & Verified Filter)  */}
+        {/* ------------------------------------------------------------- */}
+        {step === "select_subject" && (
+          <div className="space-y-3">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex items-center space-x-2">
+              <span className="text-slate-400 text-sm">🔍</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search subject code, name or exam date..."
+                className="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-between items-center px-1">
+              <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">
+                Available Subjects ({filteredSubjects.length})
+              </span>
+              <button
+                onClick={fetchAvailableSubjects}
+                className="text-xs text-sky-400 font-bold hover:underline"
               >
-                Back to Tasks
+                🔄 Refresh List
+              </button>
+            </div>
+
+            {loadingSubjects ? (
+              <div className="p-12 text-center text-xs text-slate-400">
+                Loading merged database subjects...
+              </div>
+            ) : filteredSubjects.length === 0 ? (
+              <div className="p-10 text-center bg-slate-900 border border-slate-800 rounded-3xl space-y-2">
+                <span className="text-3xl">🎉</span>
+                <p className="text-sm font-bold text-white">All subjects completed!</p>
+                <p className="text-xs text-slate-400">
+                  All routine subjects have already been uploaded and verified.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {filteredSubjects.map((sub, idx) => (
+                  <div
+                    key={`${sub.code}-${idx}`}
+                    onClick={() => handleSelectSubject(sub)}
+                    className="p-3.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-sky-500/50 rounded-2xl flex items-center justify-between cursor-pointer transition-all active:scale-98 shadow-md group"
+                  >
+                    <div>
+                      <h4 className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors">
+                        {sub.name}
+                      </h4>
+                      <div className="flex items-center space-x-2 mt-0.5">
+                        <span className="text-xs font-mono text-sky-400">Code: {sub.code}</span>
+                        {sub.date && (
+                          <span className="text-[10px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.2 rounded-full">
+                            📅 {sub.date}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-sky-400 bg-sky-500/10 px-3 py-1.5 rounded-xl border border-sky-500/20 group-hover:bg-sky-500 group-hover:text-slate-950 transition-all">
+                      Select →
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ------------------------------------------------------------- */}
+        {/* STEP 3: UPLOAD QUESTION PHOTO                                 */}
+        {/* ------------------------------------------------------------- */}
+        {step === "upload_image" && selectedSubject && (
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl">
+            {/* Selected Subject Banner */}
+            <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex justify-between items-center">
+              <div>
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">
+                  Target Subject
+                </span>
+                <h3 className="text-sm font-bold text-white">{selectedSubject.name}</h3>
+                <span className="text-xs text-sky-400 font-mono">
+                  Code: {selectedSubject.code} • Date: {selectedSubject.date || "N/A"}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedSubject(null);
+                  setImagePreview(null);
+                  setStep("select_subject");
+                }}
+                className="text-xs text-slate-400 hover:text-white px-2.5 py-1 bg-slate-800 rounded-lg"
+              >
+                Change
+              </button>
+            </div>
+
+            {/* Image Preview / File Picker */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-300 block">
+                Attach Clear Photo of Exam Question:
+              </label>
+
+              {imagePreview ? (
+                <div className="relative rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 max-h-56 flex items-center justify-center">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="max-h-56 w-full object-contain"
+                  />
+                  <button
+                    onClick={() => setImagePreview(null)}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-rose-500 text-white font-bold text-xs flex items-center justify-center shadow-lg"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <label className="border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-colors bg-slate-950/60">
+                  <span className="text-3xl">📷</span>
+                  <span className="text-xs font-bold text-slate-300 mt-2">
+                    Click to Take Photo or Browse Gallery
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5">
+                    Clear readable text required
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+
+            <button
+              onClick={handleSubmitQuestion}
+              disabled={!imagePreview || isSubmitting}
+              className={`w-full py-3.5 text-white font-bold text-xs rounded-xl shadow-lg transition-all ${
+                !imagePreview || isSubmitting
+                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20 active:scale-98"
+              }`}
+            >
+              {isSubmitting ? "Uploading..." : "Submit for Admin Review (+50 Coins)"}
+            </button>
+          </div>
+        )}
+
+        {/* ------------------------------------------------------------- */}
+        {/* STEP 4: SUCCESS CONFIRMATION                                 */}
+        {/* ------------------------------------------------------------- */}
+        {step === "success" && (
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 text-center">
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-3xl shadow-xl shadow-emerald-500/20">
+              ✓
+            </div>
+
+            <div className="space-y-1.5">
+              <h2 className="text-lg font-bold text-white">Upload Submitted!</h2>
+              <p className="text-xs text-slate-300 leading-relaxed max-w-xs mx-auto">
+                Your question photo for{" "}
+                <span className="text-white font-semibold">{selectedSubject?.name}</span> is pending
+                admin review.
+              </p>
+              <p className="text-xs text-emerald-400 font-semibold font-mono pt-1">
+                +50 Coins will be credited upon admin approval!
+              </p>
+            </div>
+
+            <div className="pt-2 flex space-x-2">
+              <button
+                onClick={() => {
+                  setSelectedSubject(null);
+                  setImagePreview(null);
+                  setStep("ad");
+                }}
+                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-colors"
+              >
+                Upload Another
+              </button>
+              <Link
+                href="/history"
+                className="flex-1 py-3 bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold text-xs rounded-xl flex items-center justify-center"
+              >
+                View History
               </Link>
             </div>
           </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="w-full text-center py-3">
+      {/* 3. Footer */}
+      <footer className="w-full text-center py-4">
         <p className="text-[11px] text-slate-600 font-medium">
-          Telegram Mini App • Subject Portal
+          Telegram Mini App • Exam Question Hub
         </p>
       </footer>
     </div>
