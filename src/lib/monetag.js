@@ -1,38 +1,61 @@
-// Monetag Rewarded Interstitial SDK Handler
+// Monetag Rewarded Interstitial & Smartlink Ad Handler
 
 export const MONETAG_CONFIG = {
   ZONE_ID: "11576758",
+  // Monetag Direct Smartlink Fallback
+  DIRECT_LINK: "https://otootoup.com/4/8834927",
 };
 
 /**
- * Trigger Monetag Official Rewarded Interstitial Ad
- * Returns a promise that only resolves when the ad has fully displayed and closed by the user
+ * 1. Check if Monetag SDK is successfully loaded on window
  */
-export function playMonetagRewardedInterstitial() {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined") {
-      return resolve({ success: true });
-    }
+export function isMonetagSDKReady() {
+  if (typeof window === "undefined") return false;
+  return typeof window.show_11576758 === "function";
+}
 
-    // If official SDK function exists
-    if (typeof window.show_11576758 === "function") {
-      console.log("Invoking Monetag show_11576758()...");
+/**
+ * 2. Play Monetag Ad:
+ * - First tries the Official SDK (window.show_11576758())
+ * - If SDK is blocked or unavailable, automatically opens Monetag Direct Link in browser / Telegram WebApp
+ */
+export function playMonetagAd() {
+  if (typeof window === "undefined") return;
 
-      // show_11576758() opens the ad and returns a promise
-      // This promise resolves only AFTER the user watches and closes the ad!
+  // Method A: Official SDK Rewarded Interstitial
+  if (typeof window.show_11576758 === "function") {
+    try {
       window
         .show_11576758()
         .then(() => {
-          console.log("Monetag Ad playback officially completed & closed by user!");
-          resolve({ success: true });
+          console.log("Monetag Ad playback completed!");
         })
         .catch((err) => {
-          console.warn("Monetag Ad closed or skipped:", err);
-          resolve({ success: true });
+          console.warn("Monetag SDK error, falling back to Direct Link:", err);
+          openMonetagDirectLink();
         });
-    } else {
-      console.warn("show_11576758 function not found on window");
-      resolve({ success: true });
+      return;
+    } catch (e) {
+      console.warn("SDK call failed:", e);
     }
-  });
+  }
+
+  // Method B: Direct Smartlink in new window / Telegram link
+  openMonetagDirectLink();
+}
+
+/**
+ * Open Monetag Direct Smartlink in external browser / tab
+ */
+export function openMonetagDirectLink() {
+  if (typeof window === "undefined") return;
+
+  const directLink = MONETAG_CONFIG.DIRECT_LINK;
+
+  if (window.Telegram?.WebApp) {
+    // Open in Telegram External In-App / System Browser
+    window.Telegram.WebApp.openLink(directLink);
+  } else {
+    window.open(directLink, "_blank", "noopener,noreferrer");
+  }
 }
